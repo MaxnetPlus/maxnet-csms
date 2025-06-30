@@ -28,7 +28,7 @@ $service = new DatabaseImportService();
 try {
     echo "Starting import...\n";
     $result = $service->importFromSql($testFile);
-    
+
     echo "Import completed!\n";
     echo "Progress ID: " . $result['progress_id'] . "\n";
     echo "Customers: " . json_encode($result['customers']) . "\n";

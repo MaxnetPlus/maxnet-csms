@@ -6,9 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
-import { AlertCircle, CheckCircle, Database, FileText, Upload, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { Head } from '@inertiajs/react';
+import { AlertCircle, AlertTriangle, CheckCircle, Clock, Database, FileText, Upload, X } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -16,6 +16,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ImportResult {
+    progress_id?: string;
     customers: {
         imported: number;
         skipped: number;
@@ -28,118 +29,233 @@ interface ImportResult {
     };
 }
 
+interface ProgressData {
+    percentage: number;
+    message: string;
+    updated_at: string;
+}
+
 export default function DatabaseImportIndex() {
     const [progress, setProgress] = useState(0);
     const [progressMessage, setProgressMessage] = useState('');
     const [result, setResult] = useState<ImportResult | null>(null);
+    const [file, setFile] = useState<File | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [progressId, setProgressId] = useState<string | null>(null);
+    const [detailedLogs, setDetailedLogs] = useState<string[]>([]);
 
-    const { data, setData, post, processing, errors, reset } = useForm({
-        sql_file: null as File | null,
-    });
+    const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    const handleFileSelect = useCallback(
-        (event: React.ChangeEvent<HTMLInputElement>) => {
-            const file = event.target.files?.[0];
-            if (file) {
-                // Validate file extension
-                const fileExtension = file.name.split('.').pop()?.toLowerCase();
-                if (fileExtension !== 'sql') {
-                    alert('Please select a valid SQL file (.sql extension required)');
-                    // Reset the input
-                    event.target.value = '';
-                    return;
+    // Helper function to get or refresh CSRF token
+    const getCsrfToken = async (): Promise<string> => {
+        let token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+
+        if (!token) {
+            // Try to refresh the page's CSRF token by making a simple request
+            try {
+                const response = await fetch('/admin/database-import', {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'text/html',
+                    },
+                });
+
+                if (response.ok) {
+                    const html = await response.text();
+                    const match = html.match(/<meta name="csrf-token" content="([^"]+)"/);
+                    if (match) {
+                        token = match[1];
+                        // Update the meta tag for future use
+                        const metaTag = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]');
+                        if (metaTag) {
+                            metaTag.content = token;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to refresh CSRF token:', e);
+            }
+        }
+
+        if (!token) {
+            throw new Error('CSRF token not found. Please refresh the page and try again.');
+        }
+
+        return token;
+    };
+
+    const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = event.target.files?.[0];
+        if (selectedFile) {
+            // Validate file extension
+            const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
+            if (fileExtension !== 'sql') {
+                alert('Please select a valid SQL file (.sql extension required)');
+                // Reset the input
+                event.target.value = '';
+                return;
+            }
+
+            // Validate file size (150MB = 157,286,400 bytes)
+            if (selectedFile.size > 157286400) {
+                alert('File size must not exceed 150MB');
+                // Reset the input
+                event.target.value = '';
+                return;
+            }
+
+            setFile(selectedFile);
+            setResult(null);
+            setProgress(0);
+            setProgressMessage('');
+            setError(null);
+            setDetailedLogs([]);
+        }
+    }, []);
+
+    const trackProgress = useCallback(
+        async (progressId: string) => {
+            try {
+                const csrfToken = await getCsrfToken();
+
+                const response = await fetch('/admin/database-import/progress', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        progress_id: progressId,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch progress');
                 }
 
-                // Validate file size (150MB = 157,286,400 bytes)
-                if (file.size > 157286400) {
-                    alert('File size must not exceed 150MB');
-                    // Reset the input
-                    event.target.value = '';
-                    return;
-                }
+                const progressData: ProgressData = await response.json();
+                setProgress(progressData.percentage);
+                setProgressMessage(progressData.message);
 
-                setData('sql_file', file);
-                setResult(null);
-                setProgress(0);
-                setProgressMessage('');
+                // Add to detailed logs if it's a new message
+                setDetailedLogs((prev) => {
+                    const lastLog = prev[prev.length - 1];
+                    if (lastLog !== progressData.message) {
+                        return [...prev, `${new Date().toLocaleTimeString()}: ${progressData.message}`];
+                    }
+                    return prev;
+                });
+
+                // Continue tracking if not complete and not failed
+                if (progressData.percentage >= 0 && progressData.percentage < 100) {
+                    setTimeout(() => trackProgress(progressId), 500);
+                }
+            } catch (error) {
+                console.error('Progress tracking error:', error);
             }
         },
-        [setData],
+        [getCsrfToken],
     );
 
-    const handleUpload = useCallback(() => {
-        if (!data.sql_file) return;
+    const handleUpload = useCallback(async () => {
+        if (!file) return;
 
+        setUploading(true);
         setProgress(0);
         setProgressMessage('Starting import...');
         setResult(null);
+        setError(null);
+        setDetailedLogs(['Import started...']);
 
-        // Simulate progress for better UX
-        const progressInterval = setInterval(() => {
-            setProgress((prev) => {
-                if (prev >= 85) return prev;
-                return prev + Math.random() * 5;
+        try {
+            const formData = new FormData();
+            formData.append('sql_file', file);
+
+            const csrfToken = await getCsrfToken();
+
+            const response = await fetch('/admin/database-import/upload', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    Accept: 'application/json',
+                },
+                body: formData,
             });
-        }, 300);
 
-        post('/admin/database-import/upload', {
-            onSuccess: (page: any) => {
-                clearInterval(progressInterval);
+            // Clone the response so we can read it multiple times if needed
+            const responseClone = response.clone();
+
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                // If JSON parsing fails, get the text response from the clone
+                const textResponse = await responseClone.text();
+                console.error('Failed to parse JSON response:', textResponse);
+
+                // Handle specific error cases
+                if (response.status === 419) {
+                    throw new Error('Session expired. Please refresh the page and try again.');
+                } else if (response.status === 403) {
+                    throw new Error('Access denied. You may not have permission to import databases.');
+                } else if (response.status === 422) {
+                    throw new Error('Validation failed. Please check your file and try again.');
+                } else {
+                    throw new Error(
+                        `Server returned invalid JSON response. Status: ${response.status}. Please check the server logs for more details.`,
+                    );
+                }
+            }
+
+            if (response.ok && data.success) {
+                setResult(data.data);
                 setProgress(100);
                 setProgressMessage('Import completed successfully!');
+                setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Import completed successfully!`]);
 
-                // Simulate result data - replace with actual response data
-                setResult({
-                    customers: {
-                        imported: 150,
-                        skipped: 5,
-                        total: 155,
-                    },
-                    subscriptions: {
-                        imported: 300,
-                        skipped: 10,
-                        total: 310,
-                    },
-                });
-            },
-            onError: () => {
-                clearInterval(progressInterval);
-                setProgress(0);
-                setProgressMessage('Import failed');
-            },
-            onFinish: () => {
-                clearInterval(progressInterval);
-            },
-        });
-    }, [data.sql_file, post]);
+                // Start tracking progress if we have a progress_id
+                if (data.data.progress_id) {
+                    setProgressId(data.data.progress_id);
+                    trackProgress(data.data.progress_id);
+                }
+            } else {
+                throw new Error(data.message || 'Import failed');
+            }
+        } catch (error: any) {
+            const errorMessage = error.message || 'Import failed';
+            setError(errorMessage);
+            setProgress(0);
+            setProgressMessage('Import failed');
+            setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Error - ${errorMessage}`]);
+        } finally {
+            setUploading(false);
+        }
+    }, [file, trackProgress]);
 
     const handleReset = useCallback(() => {
-        reset();
+        setFile(null);
+        setUploading(false);
         setProgress(0);
         setProgressMessage('');
         setResult(null);
+        setError(null);
+        setProgressId(null);
+        setDetailedLogs([]);
+
+        // Clear any running progress interval
+        if (progressIntervalRef.current) {
+            clearInterval(progressIntervalRef.current);
+            progressIntervalRef.current = null;
+        }
 
         // Reset file input
         const fileInput = document.getElementById('sql-file') as HTMLInputElement;
         if (fileInput) {
             fileInput.value = '';
         }
-    }, [reset]);
-
-    // const handleReset = useCallback(() => {
-    //     setSelectedFile(null);
-    //     setUploading(false);
-    //     setProgress(0);
-    //     setProgressMessage('');
-    //     setResult(null);
-    //     setError(null);
-
-    //     // Reset file input
-    //     const fileInput = document.getElementById('sql-file') as HTMLInputElement;
-    //     if (fileInput) {
-    //         fileInput.value = '';
-    //     }
-    // }, []);
+    }, []);
 
     const formatFileSize = (bytes: number): string => {
         if (bytes === 0) return '0 Bytes';
@@ -176,22 +292,22 @@ export default function DatabaseImportIndex() {
                         <CardContent className="space-y-6">
                             <div className="space-y-2">
                                 <Label htmlFor="sql-file">SQL File</Label>
-                                <Input id="sql-file" type="file" accept=".sql" onChange={handleFileSelect} disabled={processing} />
-                                {data.sql_file && (
+                                <Input id="sql-file" type="file" accept=".sql" onChange={handleFileSelect} disabled={uploading} />
+                                {file && (
                                     <p className="text-sm text-muted-foreground">
-                                        Selected: {data.sql_file.name} ({formatFileSize(data.sql_file.size)})
+                                        Selected: {file.name} ({formatFileSize(file.size)})
                                     </p>
                                 )}
                             </div>
 
-                            {errors.sql_file && (
+                            {error && (
                                 <Alert variant="destructive">
                                     <AlertCircle className="h-4 w-4" />
-                                    <AlertDescription>{errors.sql_file}</AlertDescription>
+                                    <AlertDescription>{error}</AlertDescription>
                                 </Alert>
                             )}
 
-                            {processing && (
+                            {uploading && (
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-sm">
                                         <span>Progress</span>
@@ -202,13 +318,29 @@ export default function DatabaseImportIndex() {
                                 </div>
                             )}
 
+                            {detailedLogs.length > 0 && (
+                                <div className="space-y-2">
+                                    <Label className="flex items-center gap-2 text-sm font-medium">
+                                        <Clock className="h-4 w-4" />
+                                        Import Progress Details
+                                    </Label>
+                                    <div className="max-h-32 space-y-1 overflow-y-auto rounded-md bg-muted/30 p-3 text-xs">
+                                        {detailedLogs.map((log, index) => (
+                                            <div key={index} className="text-muted-foreground">
+                                                {log}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex gap-2">
-                                <Button onClick={handleUpload} disabled={!data.sql_file || processing} className="flex-1">
+                                <Button onClick={handleUpload} disabled={!file || uploading} className="flex-1">
                                     <Database className="mr-2 h-4 w-4" />
-                                    {processing ? 'Importing...' : 'Start Import'}
+                                    {uploading ? 'Importing...' : 'Start Import'}
                                 </Button>
-                                {(data.sql_file || result) && (
-                                    <Button variant="outline" onClick={handleReset} disabled={processing}>
+                                {(file || result) && (
+                                    <Button variant="outline" onClick={handleReset} disabled={uploading}>
                                         <X className="mr-2 h-4 w-4" />
                                         Reset
                                     </Button>
@@ -267,14 +399,18 @@ export default function DatabaseImportIndex() {
                                 <CheckCircle className="h-5 w-5 text-green-600" />
                                 Import Results
                             </CardTitle>
+                            <CardDescription>Import completed at {new Date().toLocaleString()}</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <h4 className="font-medium">Customers</h4>
-                                    <div className="space-y-1 text-sm">
+                            <div className="grid gap-6 md:grid-cols-2">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <Database className="h-5 w-5 text-blue-600" />
+                                        <h4 className="font-medium">Customers</h4>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
                                         <div className="flex justify-between">
-                                            <span>Total records:</span>
+                                            <span>Total records found:</span>
                                             <span className="font-medium">{result.customers.total}</span>
                                         </div>
                                         <div className="flex justify-between">
@@ -282,17 +418,31 @@ export default function DatabaseImportIndex() {
                                             <span className="font-medium text-green-600">{result.customers.imported}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span>Skipped:</span>
+                                            <span>Skipped/Failed:</span>
                                             <span className="font-medium text-yellow-600">{result.customers.skipped}</span>
+                                        </div>
+                                        <div className="mt-2 border-t pt-2">
+                                            <div className="flex justify-between">
+                                                <span className="font-medium">Success Rate:</span>
+                                                <span className="font-medium text-blue-600">
+                                                    {result.customers.total > 0
+                                                        ? Math.round((result.customers.imported / result.customers.total) * 100)
+                                                        : 0}
+                                                    %
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <h4 className="font-medium">Subscriptions</h4>
-                                    <div className="space-y-1 text-sm">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="h-5 w-5 text-purple-600" />
+                                        <h4 className="font-medium">Subscriptions</h4>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
                                         <div className="flex justify-between">
-                                            <span>Total records:</span>
+                                            <span>Total records found:</span>
                                             <span className="font-medium">{result.subscriptions.total}</span>
                                         </div>
                                         <div className="flex justify-between">
@@ -300,17 +450,51 @@ export default function DatabaseImportIndex() {
                                             <span className="font-medium text-green-600">{result.subscriptions.imported}</span>
                                         </div>
                                         <div className="flex justify-between">
-                                            <span>Skipped:</span>
+                                            <span>Skipped/Failed:</span>
                                             <span className="font-medium text-yellow-600">{result.subscriptions.skipped}</span>
+                                        </div>
+                                        <div className="mt-2 border-t pt-2">
+                                            <div className="flex justify-between">
+                                                <span className="font-medium">Success Rate:</span>
+                                                <span className="font-medium text-blue-600">
+                                                    {result.subscriptions.total > 0
+                                                        ? Math.round((result.subscriptions.imported / result.subscriptions.total) * 100)
+                                                        : 0}
+                                                    %
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="mt-6 flex justify-center">
+                            {(result.customers.skipped > 0 || result.subscriptions.skipped > 0) && (
+                                <div className="mt-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+                                    <div className="flex items-start gap-2">
+                                        <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-600" />
+                                        <div className="flex-1">
+                                            <h5 className="font-medium text-yellow-800">Some records were skipped</h5>
+                                            <p className="mt-1 text-sm text-yellow-700">Records may have been skipped due to:</p>
+                                            <ul className="mt-2 space-y-1 text-sm text-yellow-700">
+                                                <li>• Duplicate customer IDs or subscription IDs</li>
+                                                <li>• Invalid foreign key references</li>
+                                                <li>• Data validation errors</li>
+                                                <li>• Database constraint violations</li>
+                                            </ul>
+                                            <p className="mt-2 text-sm text-yellow-700">Check the application logs for detailed error information.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="mt-6 flex justify-center gap-3">
                                 <Button onClick={navigateToReports}>
                                     <FileText className="mr-2 h-4 w-4" />
                                     View Reports
+                                </Button>
+                                <Button variant="outline" onClick={() => window.location.reload()}>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Import Another File
                                 </Button>
                             </div>
                         </CardContent>

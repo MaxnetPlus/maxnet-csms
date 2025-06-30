@@ -73,41 +73,49 @@ class DatabaseImportService
         $pattern = '/INSERT INTO\s+`?customers`?\s*\([^)]+\)\s*VALUES\s*(.+?);/is';
         preg_match_all($pattern, $sqlContent, $matches);
 
-        Log::info('Found customer INSERT matches', ['count' => count($matches[1])]);
-
         foreach ($matches[1] as $valuesString) {
             // Parse values from SQL INSERT
             $valuesList = $this->parseInsertValues($valuesString);
-            Log::info('Parsed values for customers', ['count' => count($valuesList)]);
 
             foreach ($valuesList as $values) {
-                Log::info('Customer values', ['values' => $values, 'count' => count($values)]);
-                
                 if (count($values) >= 10) { // Ensure we have enough columns
-                    $customerData = [
-                        'customer_id' => $this->cleanValue($values[0]),
-                        'customer_password' => $this->cleanValue($values[1]),
-                        'customer_name' => $this->cleanValue($values[2]),
-                        'referral_source' => $this->cleanValue($values[3]),
-                        'customer_email' => $this->cleanValue($values[4]),
-                        'customer_address' => $this->cleanValue($values[5]),
-                        'customer_phone' => $this->cleanValue($values[6]),
-                        'customer_ktp_no' => $this->cleanValue($values[7]),
-                        'customer_ktp_picture' => $this->cleanValue($values[8]),
-                        'password_reset' => $this->cleanValue($values[9]),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                    
-                    $customers[] = $customerData;
-                    Log::info('Added customer', ['customer_data' => $customerData]);
+                    try {
+                        $customerData = [
+                            'customer_id' => $this->cleanValue($values[0]),
+                            'customer_password' => $this->cleanValue($values[1]),
+                            'customer_name' => $this->cleanValue($values[2]),
+                            'referral_source' => $this->cleanValue($values[3]),
+                            'customer_email' => $this->cleanValue($values[4]),
+                            'customer_address' => $this->cleanValue($values[5]),
+                            'customer_phone' => $this->cleanValue($values[6]),
+                            'customer_ktp_no' => $this->cleanValue($values[7]),
+                            'customer_ktp_picture' => $this->cleanValue($values[8]),
+                            'password_reset' => $this->cleanValue($values[9]),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+
+                        // Validate customer data before adding
+                        if ($this->validateCustomerData($customerData)) {
+                            $customers[] = $customerData;
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to parse customer row', [
+                            'values_count' => count($values),
+                            'first_few_values' => array_slice($values, 0, 5),
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 } else {
-                    Log::warning('Skipped customer with insufficient values', ['values_count' => count($values)]);
+                    Log::warning('Customer row has insufficient columns', [
+                        'expected' => 10,
+                        'actual' => count($values),
+                        'first_few_values' => array_slice($values, 0, min(5, count($values))),
+                    ]);
                 }
             }
         }
 
-        Log::info('Total customers parsed', ['count' => count($customers)]);
         return $customers;
     }
 
@@ -124,36 +132,62 @@ class DatabaseImportService
             $valuesList = $this->parseInsertValues($valuesString);
 
             foreach ($valuesList as $values) {
-                if (count($values) >= 25) { // Ensure we have enough columns
-                    $subscriptions[] = [
-                        'subscription_id' => $this->cleanValue($values[0]),
-                        'subscription_password' => $this->cleanValue($values[1]),
-                        'customer_id' => $this->cleanValue($values[2]),
-                        'serv_id' => $this->cleanValue($values[3]),
-                        'group' => $this->cleanValue($values[4]),
-                        'created_by' => $this->cleanValue($values[5]),
-                        'subscription_start_date' => $this->cleanValue($values[6]),
-                        'subscription_billing_cycle' => $this->cleanValue($values[7]),
-                        'subscription_price' => $this->cleanValue($values[8]),
-                        'subscription_address' => $this->cleanValue($values[9]),
-                        'subscription_status' => $this->cleanValue($values[10]),
-                        'subscription_maps' => $this->cleanValue($values[11]),
-                        'subscription_home_photo' => $this->cleanValue($values[12]),
-                        'subscription_form_scan' => $this->cleanValue($values[13]),
-                        'subscription_description' => $this->cleanValue($values[14]),
-                        'cpe_type' => $this->cleanValue($values[15]),
-                        'cpe_serial' => $this->cleanValue($values[16]),
-                        'cpe_picture' => $this->cleanValue($values[17]),
-                        'cpe_site' => $this->cleanValue($values[18]),
-                        'cpe_mac' => $this->cleanValue($values[19]),
-                        'is_cpe_rent' => $this->parseBooleanValue($values[20]),
-                        'dismantle_at' => $this->parseNullableDate($values[21]),
-                        'suspend_at' => $this->parseNullableDate($values[22]),
-                        'installed_by' => $this->cleanValue($values[23]),
-                        'subscription_test_result' => $this->cleanValue($values[24]),
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
+                if (count($values) >= 34) { // Ensure we have all 34 columns
+                    try {
+                        $subscriptionData = [
+                            'subscription_id' => $this->cleanValue($values[0]),
+                            'subscription_password' => $this->cleanValue($values[1]),
+                            'customer_id' => $this->cleanValue($values[2]),
+                            'serv_id' => $this->cleanValue($values[3]),
+                            'group' => $this->cleanValue($values[4]),
+                            'created_by' => $this->cleanValue($values[5]),
+                            'subscription_start_date' => $this->cleanValue($values[6]),
+                            'subscription_billing_cycle' => $this->cleanValue($values[7]),
+                            'subscription_price' => $this->cleanValue($values[8]),
+                            'subscription_address' => $this->cleanValue($values[9]),
+                            'subscription_status' => $this->cleanValue($values[10]),
+                            'subscription_maps' => $this->cleanValue($values[11]),
+                            'subscription_home_photo' => $this->cleanValue($values[12]),
+                            'subscription_form_scan' => $this->cleanValue($values[13]),
+                            'subscription_description' => $this->cleanValue($values[14]),
+                            'cpe_type' => $this->cleanValue($values[15]),
+                            'cpe_serial' => $this->cleanValue($values[16]),
+                            'cpe_picture' => $this->cleanValue($values[17]),
+                            'cpe_site' => $this->cleanValue($values[18]),
+                            'cpe_mac' => $this->cleanValue($values[19]),
+                            'is_cpe_rent' => $this->parseBooleanValue($values[20]),
+                            'created_at' => $this->parseTimestamp($values[21]),
+                            'updated_at' => $this->parseTimestamp($values[22]),
+                            'dismantle_at' => $this->parseNullableDate($values[23]),
+                            'suspend_at' => $this->parseNullableDate($values[24]),
+                            'installed_by' => $this->cleanValue($values[25]),
+                            'subscription_test_result' => $this->cleanValue($values[26]),
+                            'odp_distance' => $this->cleanValue($values[27]),
+                            'approved_at' => $this->parseTimestamp($values[28]),
+                            'installed_at' => $this->parseNullableDate($values[29]),
+                            'index_month' => $this->parseInteger($values[30]),
+                            'attenuation_photo' => $this->cleanValue($values[31]),
+                            'ip_address' => $this->cleanValue($values[32]),
+                            'handle_by' => $this->cleanValue($values[33]),
+                        ];
+
+                        // Validate subscription data before adding
+                        if ($this->validateSubscriptionData($subscriptionData)) {
+                            $subscriptions[] = $subscriptionData;
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('Failed to parse subscription row', [
+                            'values_count' => count($values),
+                            'first_few_values' => array_slice($values, 0, 5),
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                } else {
+                    Log::warning('Subscription row has insufficient columns', [
+                        'expected' => 34,
+                        'actual' => count($values),
+                        'first_few_values' => array_slice($values, 0, min(5, count($values))),
+                    ]);
                 }
             }
         }
@@ -163,21 +197,73 @@ class DatabaseImportService
 
     private function parseInsertValues(string $valuesString): array
     {
-        Log::info('Parsing INSERT values', ['values_string' => $valuesString]);
-        
         $result = [];
-        $rows = explode('),(', trim($valuesString, '()'));
-        
-        Log::info('Split into rows', ['row_count' => count($rows), 'rows' => $rows]);
+
+        // Remove leading/trailing whitespace and parentheses
+        $valuesString = trim($valuesString);
+
+        // Split by '),(' or '),\n(' or '),\r\n(' to handle different line endings
+        $pattern = '/\),\s*\n?\s*\(/';
+        $rows = preg_split($pattern, $valuesString);
+
+        // Clean up the first and last rows (remove leading/trailing parentheses)
+        if (!empty($rows)) {
+            $rows[0] = ltrim($rows[0], '(');
+            $rows[count($rows) - 1] = rtrim($rows[count($rows) - 1], ')');
+        }
 
         foreach ($rows as $index => $row) {
-            $values = str_getcsv($row, ',', "'");
-            Log::info('Parsed row', ['index' => $index, 'values' => $values, 'count' => count($values)]);
+            $row = trim($row);
+            if (empty($row)) continue;
+
+            // Use a more robust CSV parsing for SQL values
+            $values = $this->parseSqlValues($row);
             $result[] = $values;
         }
 
-        Log::info('Final parsing result', ['total_rows' => count($result)]);
         return $result;
+    }
+
+    private function parseSqlValues(string $row): array
+    {
+        $values = [];
+        $current = '';
+        $inQuotes = false;
+        $quoteChar = '';
+        $i = 0;
+
+        while ($i < strlen($row)) {
+            $char = $row[$i];
+
+            if (!$inQuotes && ($char === "'" || $char === '"')) {
+                $inQuotes = true;
+                $quoteChar = $char;
+                $current .= $char;
+            } elseif ($inQuotes && $char === $quoteChar) {
+                // Check if it's an escaped quote
+                if ($i + 1 < strlen($row) && $row[$i + 1] === $quoteChar) {
+                    $current .= $char . $char;
+                    $i++; // Skip the next character
+                } else {
+                    $inQuotes = false;
+                    $current .= $char;
+                }
+            } elseif (!$inQuotes && $char === ',') {
+                $values[] = trim($current);
+                $current = '';
+            } else {
+                $current .= $char;
+            }
+
+            $i++;
+        }
+
+        // Add the last value
+        if ($current !== '') {
+            $values[] = trim($current);
+        }
+
+        return $values;
     }
 
     private function cleanValue(?string $value): ?string
@@ -189,13 +275,17 @@ class DatabaseImportService
         return trim($value, "'\"");
     }
 
-    private function parseBooleanValue(?string $value): bool
+    private function parseBooleanValue(?string $value): ?bool
     {
         $cleaned = $this->cleanValue($value);
-        return in_array($cleaned, ['1', 'true', 'TRUE', true], true);
+        if ($cleaned === null) {
+            return null;
+        }
+
+        return in_array(strtolower($cleaned), ['1', 'true', 'yes', 'on'], true);
     }
 
-    private function parseNullableDate(?string $value): ?\DateTime
+    private function parseNullableDate(?string $value): ?string
     {
         $cleaned = $this->cleanValue($value);
         if ($cleaned === null) {
@@ -203,16 +293,36 @@ class DatabaseImportService
         }
 
         try {
-            return new \DateTime($cleaned);
+            $date = new \DateTime($cleaned);
+            return $date->format('Y-m-d H:i:s');
         } catch (\Exception $e) {
             return null;
         }
     }
 
+    private function parseTimestamp(?string $value): ?string
+    {
+        $cleaned = $this->cleanValue($value);
+        if ($cleaned === null) {
+            return null;
+        }
+
+        try {
+            $date = new \DateTime($cleaned);
+            return $date->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    private function parseInteger(?string $value): int
+    {
+        $cleaned = $this->cleanValue($value);
+        return (int) ($cleaned ?? 0);
+    }
+
     private function importCustomers(array $customersData, string $progressId): array
     {
-        Log::info('Starting customer import', ['data_count' => count($customersData)]);
-        
         $chunks = array_chunk($customersData, self::CHUNK_SIZE);
         $totalChunks = count($chunks);
         $imported = 0;
@@ -220,10 +330,8 @@ class DatabaseImportService
 
         foreach ($chunks as $index => $chunk) {
             try {
-                Log::info('Importing customer chunk', ['chunk_index' => $index, 'chunk_size' => count($chunk)]);
-                
                 // Use upsert to handle duplicates
-                $result = Customer::upsert($chunk, ['customer_id'], [
+                Customer::upsert($chunk, ['customer_id'], [
                     'customer_password',
                     'customer_name',
                     'referral_source',
@@ -235,8 +343,6 @@ class DatabaseImportService
                     'password_reset',
                     'updated_at'
                 ]);
-
-                Log::info('Customer upsert result', ['result' => $result, 'chunk_size' => count($chunk)]);
 
                 $imported += count($chunk);
 
@@ -253,14 +359,11 @@ class DatabaseImportService
             }
         }
 
-        $result = [
+        return [
             'imported' => $imported,
             'skipped' => $skipped,
             'total' => count($customersData),
         ];
-        
-        Log::info('Customer import completed', $result);
-        return $result;
     }
 
     private function importSubscriptions(array $subscriptionsData, string $progressId): array
@@ -299,11 +402,19 @@ class DatabaseImportService
                         'cpe_site',
                         'cpe_mac',
                         'is_cpe_rent',
+                        'created_at',
+                        'updated_at',
                         'dismantle_at',
                         'suspend_at',
                         'installed_by',
                         'subscription_test_result',
-                        'updated_at'
+                        'odp_distance',
+                        'approved_at',
+                        'installed_at',
+                        'index_month',
+                        'attenuation_photo',
+                        'ip_address',
+                        'handle_by'
                     ]);
 
                     $imported += count($validChunk);
@@ -346,5 +457,57 @@ class DatabaseImportService
             'message' => 'Not started',
             'updated_at' => now()->toISOString(),
         ]);
+    }
+
+    private function validateSubscriptionData(array $subscriptionData): bool
+    {
+        // Required fields check
+        $requiredFields = ['subscription_id', 'customer_id', 'serv_id'];
+
+        foreach ($requiredFields as $field) {
+            if (empty($subscriptionData[$field])) {
+                Log::warning('Subscription validation failed: missing required field', [
+                    'field' => $field,
+                    'subscription_id' => $subscriptionData['subscription_id'] ?? 'unknown',
+                ]);
+                return false;
+            }
+        }
+
+        // Validate subscription_id format (if there are specific format requirements)
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $subscriptionData['subscription_id'])) {
+            Log::warning('Subscription validation failed: invalid subscription_id format', [
+                'subscription_id' => $subscriptionData['subscription_id'],
+            ]);
+            return false;
+        }
+
+        return true;
+    }
+
+    private function validateCustomerData(array $customerData): bool
+    {
+        // Required fields check
+        $requiredFields = ['customer_id', 'customer_name'];
+
+        foreach ($requiredFields as $field) {
+            if (empty($customerData[$field])) {
+                Log::warning('Customer validation failed: missing required field', [
+                    'field' => $field,
+                    'customer_id' => $customerData['customer_id'] ?? 'unknown',
+                ]);
+                return false;
+            }
+        }
+
+        // Validate customer_id format
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $customerData['customer_id'])) {
+            Log::warning('Customer validation failed: invalid customer_id format', [
+                'customer_id' => $customerData['customer_id'],
+            ]);
+            return false;
+        }
+
+        return true;
     }
 }

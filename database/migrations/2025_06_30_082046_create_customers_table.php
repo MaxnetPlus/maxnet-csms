@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('customer_name');
             $table->string('referral_source')->nullable();
             $table->string('customer_email')->nullable()->index();
-            $table->text('customer_address')->nullable();
+            $table->string('customer_address')->nullable();
             $table->string('customer_phone');
             $table->string('customer_ktp_no')->nullable();
             $table->string('customer_ktp_picture')->nullable();

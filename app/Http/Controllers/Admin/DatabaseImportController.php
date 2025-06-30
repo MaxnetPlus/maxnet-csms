@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Services\DatabaseImportService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,45 +24,59 @@ class DatabaseImportController extends Controller
         return Inertia::render('Admin/DatabaseImport/Index');
     }
 
-    public function upload(Request $request): \Illuminate\Http\RedirectResponse
+    public function upload(Request $request): \Illuminate\Http\JsonResponse
     {
-        $request->validate([
-            'sql_file' => [
-                'required',
-                'file',
-                'max:153600', // 150MB in KB
-                function ($attribute, $value, $fail) {
-                    // Check file extension
-                    $extension = strtolower($value->getClientOriginalExtension());
-                    if ($extension !== 'sql') {
-                        $fail('The sql file must have .sql extension.');
-                    }
+        // Add permission debugging
+        Log::info('Database import upload started', [
+            'user_id' => auth()->id(),
+            'has_file' => $request->hasFile('sql_file'),
+        ]);
 
-                    // Additional check for file content (optional - check if it starts with SQL keywords)
-                    $content = file_get_contents($value->getRealPath());
-                    if ($content && strlen($content) > 10) {
-                        $firstLines = substr($content, 0, 1000);
-                        $sqlKeywords = ['INSERT', 'CREATE', 'DROP', 'ALTER', 'SELECT', 'UPDATE', 'DELETE', '--', '/*'];
-                        $hasSqlContent = false;
+        try {
+            $request->validate([
+                'sql_file' => [
+                    'required',
+                    'file',
+                    'max:153600', // 150MB in KB
+                    function ($attribute, $value, $fail) {
+                        // Check file extension
+                        $extension = strtolower($value->getClientOriginalExtension());
+                        if ($extension !== 'sql') {
+                            $fail('The sql file must have .sql extension.');
+                        }
 
-                        foreach ($sqlKeywords as $keyword) {
-                            if (stripos($firstLines, $keyword) !== false) {
-                                $hasSqlContent = true;
-                                break;
+                        // Additional check for file content (optional - check if it starts with SQL keywords)
+                        $content = file_get_contents($value->getRealPath());
+                        if ($content && strlen($content) > 10) {
+                            $firstLines = substr($content, 0, 1000);
+                            $sqlKeywords = ['INSERT', 'CREATE', 'DROP', 'ALTER', 'SELECT', 'UPDATE', 'DELETE', '--', '/*'];
+                            $hasSqlContent = false;
+
+                            foreach ($sqlKeywords as $keyword) {
+                                if (stripos($firstLines, $keyword) !== false) {
+                                    $hasSqlContent = true;
+                                    break;
+                                }
+                            }
+
+                            if (!$hasSqlContent) {
+                                $fail('The file does not appear to contain valid SQL content.');
                             }
                         }
-
-                        if (!$hasSqlContent) {
-                            $fail('The file does not appear to contain valid SQL content.');
-                        }
-                    }
-                },
-            ],
-        ], [
-            'sql_file.required' => 'Please select a SQL file to upload.',
-            'sql_file.file' => 'The uploaded file is not valid.',
-            'sql_file.max' => 'The sql file must not be larger than 150MB.',
-        ]);
+                    },
+                ],
+            ], [
+                'sql_file.required' => 'Please select a SQL file to upload.',
+                'sql_file.file' => 'The uploaded file is not valid.',
+                'sql_file.max' => 'The sql file must not be larger than 150MB.',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed: ' . implode(', ', collect($e->errors())->flatten()->toArray()),
+                'errors' => $e->errors(),
+            ], 422);
+        }
 
         try {
             /** @var UploadedFile $file */
@@ -69,12 +84,39 @@ class DatabaseImportController extends Controller
 
             $result = $this->importService->importFromSql($file);
 
-            return redirect()->route('admin.database-import.index')
-                ->with('success', 'Database import completed successfully')
-                ->with('import_result', $result);
+            return response()->json([
+                'success' => true,
+                'message' => 'Database import completed successfully',
+                'data' => $result,
+            ]);
         } catch (\Exception $e) {
-            return redirect()->route('admin.database-import.index')
-                ->withErrors(['sql_file' => 'Import failed: ' . $e->getMessage()]);
+            Log::error('Database import failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Import failed: ' . $e->getMessage(),
+                'error_details' => [
+                    'file' => basename($e->getFile()),
+                    'line' => $e->getLine(),
+                    'type' => get_class($e),
+                ],
+            ], 422);
         }
+    }
+
+    public function progress(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'progress_id' => 'required|string',
+        ]);
+
+        $progress = $this->importService->getProgress($request->progress_id);
+
+        return response()->json($progress);
     }
 }

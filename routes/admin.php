@@ -45,7 +45,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::middleware('can:import-database')->group(function () {
         Route::get('database-import', [DatabaseImportController::class, 'index'])->name('database-import.index');
         Route::post('database-import/upload', [DatabaseImportController::class, 'upload'])->name('database-import.upload');
-        Route::get('database-import/progress/{progressId}', [DatabaseImportController::class, 'progress'])->name('database-import.progress');
+        Route::post('database-import/progress', [DatabaseImportController::class, 'progress'])->name('database-import.progress');
     });
 
     // Reports routes
