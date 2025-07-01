@@ -119,4 +119,19 @@ class DatabaseImportController extends Controller
 
         return response()->json($progress);
     }
+
+    public function getSkippedRecords(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'progress_id' => 'required|string',
+            'type' => 'required|in:customers,subscriptions'
+        ]);
+
+        $skippedRecords = $this->importService->getSkippedRecords($request->progress_id, $request->type);
+
+        return response()->json([
+            'success' => true,
+            'data' => $skippedRecords
+        ]);
+    }
 }

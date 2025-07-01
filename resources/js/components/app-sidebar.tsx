@@ -4,7 +4,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Database, FileText, Folder, LayoutGrid, Shield, Users } from 'lucide-react';
+import { BookOpen, BookX, Database, FileText, Folder, Shield, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const footerNavItems: NavItem[] = [
@@ -33,8 +33,9 @@ export function AppSidebar() {
     const allNavItems: (NavItem & { permission?: string })[] = [
         {
             title: 'Dashboard',
-            href: '/dashboard',
-            icon: LayoutGrid,
+            href: '/admin/reports',
+            icon: FileText,
+            permission: 'view-reports',
         },
         {
             title: 'User Management',
@@ -55,9 +56,9 @@ export function AppSidebar() {
             permission: 'import-database',
         },
         {
-            title: 'Reports',
-            href: '/admin/reports',
-            icon: FileText,
+            title: 'Cancel Subscription',
+            href: '/admin/cancel-subscription',
+            icon: BookX,
             permission: 'view-reports',
         },
     ];

@@ -26,7 +26,7 @@ class AdminUserSeeder extends Seeder
         // Create regular user
         $user = User::firstOrCreate(
             ['email' => 'user@example.com'],
-            [
+            [   
                 'name' => 'Regular User',
                 'password' => Hash::make('password'),
                 'email_verified_at' => now(),

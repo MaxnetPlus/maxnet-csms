@@ -21,12 +21,24 @@ interface ImportResult {
         imported: number;
         skipped: number;
         total: number;
+        skipped_records?: SkippedRecord[];
+        has_more_skipped?: boolean;
     };
     subscriptions: {
         imported: number;
         skipped: number;
         total: number;
+        skipped_records?: SkippedRecord[];
+        has_more_skipped?: boolean;
     };
+}
+
+interface SkippedRecord {
+    subscription_id?: string;
+    customer_id: string;
+    customer_name?: string;
+    reason: string;
+    details: string;
 }
 
 interface ProgressData {
@@ -44,6 +56,12 @@ export default function DatabaseImportIndex() {
     const [error, setError] = useState<string | null>(null);
     const [progressId, setProgressId] = useState<string | null>(null);
     const [detailedLogs, setDetailedLogs] = useState<string[]>([]);
+    const [showSkippedDetails, setShowSkippedDetails] = useState<'customers' | 'subscriptions' | null>(null);
+    const [loadingSkipped, setLoadingSkipped] = useState(false);
+    const [allSkippedRecords, setAllSkippedRecords] = useState<{
+        customers: SkippedRecord[];
+        subscriptions: SkippedRecord[];
+    }>({ customers: [], subscriptions: [] });
 
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -114,6 +132,45 @@ export default function DatabaseImportIndex() {
         }
     }, []);
 
+    const fetchSkippedRecords = useCallback(
+        async (progressId: string, type: 'customers' | 'subscriptions') => {
+            try {
+                setLoadingSkipped(true);
+                const csrfToken = await getCsrfToken();
+
+                const response = await fetch('/admin/database-import/skipped-records', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify({
+                        progress_id: progressId,
+                        type: type,
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to fetch skipped records');
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    setAllSkippedRecords((prev) => ({
+                        ...prev,
+                        [type]: data.data || [],
+                    }));
+                }
+            } catch (error) {
+                console.error('Error fetching skipped records:', error);
+            } finally {
+                setLoadingSkipped(false);
+            }
+        },
+        [getCsrfToken],
+    );
+
     const trackProgress = useCallback(
         async (progressId: string) => {
             try {
@@ -142,8 +199,9 @@ export default function DatabaseImportIndex() {
                 // Add to detailed logs if it's a new message
                 setDetailedLogs((prev) => {
                     const lastLog = prev[prev.length - 1];
-                    if (lastLog !== progressData.message) {
-                        return [...prev, `${new Date().toLocaleTimeString()}: ${progressData.message}`];
+                    const newMessage = `${new Date().toLocaleTimeString()}: ${progressData.message}`;
+                    if (!lastLog || !lastLog.includes(progressData.message)) {
+                        return [...prev, newMessage];
                     }
                     return prev;
                 });
@@ -243,6 +301,8 @@ export default function DatabaseImportIndex() {
         setError(null);
         setProgressId(null);
         setDetailedLogs([]);
+        setShowSkippedDetails(null);
+        setAllSkippedRecords({ customers: [], subscriptions: [] });
 
         // Clear any running progress interval
         if (progressIntervalRef.current) {
@@ -308,13 +368,39 @@ export default function DatabaseImportIndex() {
                             )}
 
                             {uploading && (
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     <div className="flex justify-between text-sm">
-                                        <span>Progress</span>
-                                        <span>{progress}%</span>
+                                        <span className="font-medium">Import Progress</span>
+                                        <span className="font-medium">{progress}%</span>
                                     </div>
-                                    <Progress value={progress} className="w-full" />
-                                    {progressMessage && <p className="text-sm text-muted-foreground">{progressMessage}</p>}
+                                    <div className="space-y-2">
+                                        <Progress
+                                            value={progress}
+                                            className={`h-3 w-full ${
+                                                progress < 0
+                                                    ? 'bg-red-100'
+                                                    : progress < 40
+                                                      ? 'bg-blue-100'
+                                                      : progress < 70
+                                                        ? 'bg-green-100'
+                                                        : progress < 100
+                                                          ? 'bg-purple-100'
+                                                          : 'bg-emerald-100'
+                                            }`}
+                                        />
+                                        <div className="flex justify-between text-xs text-muted-foreground">
+                                            <span className={progress >= 10 ? 'text-green-600' : ''}>Parse File</span>
+                                            <span className={progress >= 40 ? 'text-green-600' : ''}>Import Customers</span>
+                                            <span className={progress >= 70 ? 'text-green-600' : ''}>Import Subscriptions</span>
+                                            <span className={progress >= 100 ? 'text-green-600' : ''}>Complete</span>
+                                        </div>
+                                    </div>
+                                    {progressMessage && (
+                                        <div className="flex items-center gap-2 rounded bg-blue-50 p-2 text-sm">
+                                            <Clock className="h-4 w-4 flex-shrink-0 text-blue-600" />
+                                            <span className="text-blue-800">{progressMessage}</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -322,14 +408,17 @@ export default function DatabaseImportIndex() {
                                 <div className="space-y-2">
                                     <Label className="flex items-center gap-2 text-sm font-medium">
                                         <Clock className="h-4 w-4" />
-                                        Import Progress Details
+                                        Import Activity Log
                                     </Label>
-                                    <div className="max-h-32 space-y-1 overflow-y-auto rounded-md bg-muted/30 p-3 text-xs">
+                                    <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-3">
                                         {detailedLogs.map((log, index) => (
-                                            <div key={index} className="text-muted-foreground">
-                                                {log}
+                                            <div key={index} className="flex items-start gap-2 text-xs">
+                                                <span className="flex-shrink-0 font-mono text-blue-600">{log.split(': ')[0]}:</span>
+                                                <span className="text-muted-foreground">{log.split(': ').slice(1).join(': ')}</span>
                                             </div>
                                         ))}
+                                        {/* Auto-scroll to bottom */}
+                                        <div ref={(el) => el?.scrollIntoView({ behavior: 'smooth' })} />
                                     </div>
                                 </div>
                             )}
@@ -476,12 +565,45 @@ export default function DatabaseImportIndex() {
                                             <h5 className="font-medium text-yellow-800">Some records were skipped</h5>
                                             <p className="mt-1 text-sm text-yellow-700">Records may have been skipped due to:</p>
                                             <ul className="mt-2 space-y-1 text-sm text-yellow-700">
-                                                <li>• Duplicate customer IDs or subscription IDs</li>
-                                                <li>• Invalid foreign key references</li>
+                                                <li>• Invalid customer references</li>
                                                 <li>• Data validation errors</li>
                                                 <li>• Database constraint violations</li>
+                                                <li>• Duplicate IDs</li>
                                             </ul>
-                                            <p className="mt-2 text-sm text-yellow-700">Check the application logs for detailed error information.</p>
+                                            <div className="mt-4 flex gap-2">
+                                                {result.customers.skipped > 0 && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setShowSkippedDetails('customers');
+                                                            if (progressId && allSkippedRecords.customers.length === 0) {
+                                                                fetchSkippedRecords(progressId, 'customers');
+                                                            }
+                                                        }}
+                                                        disabled={loadingSkipped}
+                                                        className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                                                    >
+                                                        View Skipped Customers ({result.customers.skipped})
+                                                    </Button>
+                                                )}
+                                                {result.subscriptions.skipped > 0 && (
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            setShowSkippedDetails('subscriptions');
+                                                            if (progressId && allSkippedRecords.subscriptions.length === 0) {
+                                                                fetchSkippedRecords(progressId, 'subscriptions');
+                                                            }
+                                                        }}
+                                                        disabled={loadingSkipped}
+                                                        className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                                                    >
+                                                        View Skipped Subscriptions ({result.subscriptions.skipped})
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -497,6 +619,73 @@ export default function DatabaseImportIndex() {
                                     Import Another File
                                 </Button>
                             </div>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Skipped Records Details Modal */}
+                {showSkippedDetails && (
+                    <Card className="mt-6">
+                        <CardHeader>
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="flex items-center gap-2">
+                                    <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                                    Skipped {showSkippedDetails === 'customers' ? 'Customers' : 'Subscriptions'} Details
+                                </CardTitle>
+                                <Button variant="ghost" size="sm" onClick={() => setShowSkippedDetails(null)} className="h-8 w-8 p-0">
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <CardDescription>Details of records that were skipped during import with reasons</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {loadingSkipped ? (
+                                <div className="flex items-center justify-center p-8">
+                                    <div className="text-sm text-muted-foreground">Loading skipped records...</div>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="text-sm text-muted-foreground">
+                                        Showing skipped {showSkippedDetails} records ({allSkippedRecords[showSkippedDetails].length} of{' '}
+                                        {result?.[showSkippedDetails]?.skipped || 0} total)
+                                    </div>
+                                    {allSkippedRecords[showSkippedDetails].length > 0 ? (
+                                        <div className="max-h-96 space-y-3 overflow-y-auto">
+                                            {allSkippedRecords[showSkippedDetails].map((record, index) => (
+                                                <div key={index} className="rounded-lg border border-red-200 bg-red-50 p-3">
+                                                    <div className="mb-2 flex items-start justify-between">
+                                                        <div className="font-medium text-red-800">
+                                                            {showSkippedDetails === 'customers' ? (
+                                                                <>Customer: {record.customer_name || record.customer_id}</>
+                                                            ) : (
+                                                                <>Subscription: {record.subscription_id}</>
+                                                            )}
+                                                        </div>
+                                                        <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">{record.reason}</span>
+                                                    </div>
+                                                    <div className="text-sm text-red-700">
+                                                        <div>
+                                                            <strong>Customer ID:</strong> {record.customer_id}
+                                                        </div>
+                                                        {record.subscription_id && (
+                                                            <div>
+                                                                <strong>Subscription ID:</strong> {record.subscription_id}
+                                                            </div>
+                                                        )}
+                                                        <div>
+                                                            <strong>Details:</strong> {record.details}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-8 text-center text-muted-foreground">
+                                            No detailed records available for skipped {showSkippedDetails}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 )}

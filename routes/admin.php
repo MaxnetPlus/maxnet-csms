@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\DatabaseImportController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\CancelSubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 // Admin routes with authentication and permission middleware
@@ -46,11 +47,18 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('database-import', [DatabaseImportController::class, 'index'])->name('database-import.index');
         Route::post('database-import/upload', [DatabaseImportController::class, 'upload'])->name('database-import.upload');
         Route::post('database-import/progress', [DatabaseImportController::class, 'progress'])->name('database-import.progress');
+        Route::post('database-import/skipped-records', [DatabaseImportController::class, 'getSkippedRecords'])->name('database-import.skipped-records');
     });
 
     // Reports routes
     Route::middleware('can:view-reports')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+    });
+
+    // Cancel Subscription routes
+    Route::middleware('can:view-reports')->group(function () {
+        Route::get('cancel-subscription', [CancelSubscriptionController::class, 'index'])->name('cancel-subscription.index');
+        Route::post('cancel-subscription/map-data', [CancelSubscriptionController::class, 'mapData'])->name('cancel-subscription.map-data');
     });
 });
