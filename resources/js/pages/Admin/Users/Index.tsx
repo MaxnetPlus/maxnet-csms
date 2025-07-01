@@ -5,13 +5,14 @@ import { DataTable } from '@/components/ui/data-table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
-import { BreadcrumbItem, PaginatedData, Role, User } from '@/types';
+import { BreadcrumbItem, Invitation, PaginatedData, Role, User } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Eye, Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Eye, History, Mail, Pencil, Plus, RefreshCcw, Search, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface Props {
     users: PaginatedData<User>;
+    invitations: Invitation[];
     roles: Role[];
     filters: {
         search?: string;
@@ -24,13 +25,14 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'User Management', href: '/admin/users' },
 ];
 
-export default function UsersIndex({ users, roles, filters }: Props) {
+export default function UsersIndex({ users, invitations, roles, filters }: Props) {
     const { auth } = usePage().props as any;
     const userPermissions = auth?.user?.permissions || [];
     console.log('User Permissions:', userPermissions);
     const [search, setSearch] = useState(filters.search || '');
     const [selectedRole, setSelectedRole] = useState(filters.role || '');
     const [deleteUser, setDeleteUser] = useState<User | null>(null);
+    const [deleteInvitation, setDeleteInvitation] = useState<Invitation | null>(null);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,6 +50,16 @@ export default function UsersIndex({ users, roles, filters }: Props) {
         router.delete(`/admin/users/${user.id}`, {
             onSuccess: () => setDeleteUser(null),
         });
+    };
+
+    const handleDeleteInvitation = (invitation: Invitation) => {
+        router.delete(`/admin/users/invitations/${invitation.id}`, {
+            onSuccess: () => setDeleteInvitation(null),
+        });
+    };
+
+    const handleResendInvitation = (invitation: Invitation) => {
+        router.post(`/admin/users/invitations/${invitation.id}/resend`);
     };
 
     const columns = [
@@ -122,12 +134,26 @@ export default function UsersIndex({ users, roles, filters }: Props) {
                         <p className="text-muted-foreground">Manage users and their permissions</p>
                     </div>
                     {userPermissions?.includes('manage-users') && (
-                        <Button asChild>
-                            <Link href="/admin/users/create">
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add User
-                            </Link>
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button asChild variant="outline">
+                                <Link href="/admin/users/invitation-history">
+                                    <History className="mr-2 h-4 w-4" />
+                                    Invitation History
+                                </Link>
+                            </Button>
+                            <Button asChild variant="outline">
+                                <Link href="/admin/users/invite">
+                                    <Mail className="mr-2 h-4 w-4" />
+                                    Invite User
+                                </Link>
+                            </Button>
+                            <Button asChild>
+                                <Link href="/admin/users/create">
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add User
+                                </Link>
+                            </Button>
+                        </div>
                     )}
                 </div>
 
@@ -188,6 +214,53 @@ export default function UsersIndex({ users, roles, filters }: Props) {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Pending Invitations */}
+                {invitations && invitations.length > 0 && userPermissions?.includes('manage-users') && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Pending Invitations ({invitations.length})</CardTitle>
+                            <CardDescription>Users who have been invited but haven't accepted yet</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {invitations.map((invitation) => (
+                                    <div key={invitation.id} className="flex items-center justify-between rounded-lg border p-4">
+                                        <div className="flex flex-col">
+                                            <span className="font-medium">{invitation.email}</span>
+                                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                <span>Role: {invitation.role}</span>
+                                                <span>•</span>
+                                                <span>Invited by: {invitation.inviter?.name}</span>
+                                                <span>•</span>
+                                                <span>Expires: {new Date(invitation.expires_at).toLocaleDateString()}</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleResendInvitation(invitation)}
+                                                title="Resend invitation"
+                                            >
+                                                <RefreshCcw className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setDeleteInvitation(invitation)}
+                                                className="text-destructive hover:text-destructive"
+                                                title="Cancel invitation"
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             {/* Delete Confirmation Dialog */}
@@ -203,6 +276,26 @@ export default function UsersIndex({ users, roles, filters }: Props) {
                         </Button>
                         <Button variant="destructive" onClick={() => deleteUser && handleDelete(deleteUser)}>
                             Delete
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Invitation Confirmation Dialog */}
+            <Dialog open={!!deleteInvitation} onOpenChange={() => setDeleteInvitation(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Cancel Invitation</DialogTitle>
+                        <DialogDescription>
+                            Are you sure you want to cancel the invitation for {deleteInvitation?.email}? This action cannot be undone.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteInvitation(null)}>
+                            Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={() => deleteInvitation && handleDeleteInvitation(deleteInvitation)}>
+                            Cancel Invitation
                         </Button>
                     </DialogFooter>
                 </DialogContent>

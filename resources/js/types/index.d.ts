@@ -120,6 +120,19 @@ export interface Subscription {
     customer?: Customer;
 }
 
+export interface Invitation {
+    id: number;
+    email: string;
+    token: string;
+    role: string;
+    invited_by: number;
+    expires_at: string;
+    accepted_at: string | null;
+    created_at: string;
+    updated_at: string;
+    inviter?: User;
+}
+
 export interface PaginatedData<T> {
     data: T[];
     current_page: number;

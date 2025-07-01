@@ -18,6 +18,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::middleware('can:manage-users')->group(function () {
         // Move create route before the show route to avoid "create" being treated as a user ID
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');
+        Route::get('users/invite', [UserController::class, 'invite'])->name('users.invite');
+        Route::get('users/invitation-history', [UserController::class, 'invitationHistory'])->name('users.invitation-history');
+        Route::post('users/invite', [UserController::class, 'sendInvitation'])->name('users.send-invitation');
+        Route::delete('users/invitations/{invitation}', [UserController::class, 'destroyInvitation'])->name('users.invitations.destroy');
+        Route::post('users/invitations/{invitation}/resend', [UserController::class, 'resendInvitation'])->name('users.invitations.resend');
+        Route::post('users/invitations/bulk-delete', [UserController::class, 'bulkDeleteInvitations'])->name('users.invitations.bulk-delete');
+        Route::post('users/invitations/bulk-resend', [UserController::class, 'bulkResendInvitations'])->name('users.invitations.bulk-resend');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
 
         // These routes should come after the create route
