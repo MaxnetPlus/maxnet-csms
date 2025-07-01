@@ -57,8 +57,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     });
 
     // Cancel Subscription routes
-    Route::middleware('can:view-reports')->group(function () {
-        Route::get('cancel-subscription', [CancelSubscriptionController::class, 'index'])->name('cancel-subscription.index');
-        Route::post('cancel-subscription/map-data', [CancelSubscriptionController::class, 'mapData'])->name('cancel-subscription.map-data');
+    Route::middleware('can:view-reports')->prefix('cancel-subscription')->name('cancel-subscription.')->group(function () {
+        Route::get('/', [CancelSubscriptionController::class, 'index'])->name('index');
+        Route::get('/map-data', [CancelSubscriptionController::class, 'mapData'])->name('map-data');
+        Route::post('/table-data', [CancelSubscriptionController::class, 'tableData'])->name('table-data');
+        Route::get('/clustered-data', [CancelSubscriptionController::class, 'clusteredData'])->name('clustered-data');
+        Route::get('/export', [CancelSubscriptionController::class, 'export'])->name('export');
     });
 });
