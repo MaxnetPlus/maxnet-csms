@@ -282,7 +282,7 @@ export default function CancelList({ initialSearch = '', mapBounds, onLocationCl
                             // Force immediate fetch with new per_page value
                             fetchTableData(1, search, mapBounds, true);
                         }}
-                        className="rounded border px-2 py-1 text-sm"
+                        className="rounded border px-2 py-1 text-sm dark:bg-muted dark:text-muted-foreground"
                     >
                         <option value={10}>10</option>
                         <option value={15}>15</option>

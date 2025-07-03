@@ -51,6 +51,12 @@ export default function ForgotPassword({ status }: { status?: string }) {
                             Email password reset link
                         </Button>
                     </div>
+
+                    {(errors as any).throttle && (
+                        <div className="rounded-md bg-red-50 p-3 text-center dark:bg-red-950">
+                            <div className="text-sm text-red-800 dark:text-red-200">{(errors as any).throttle}</div>
+                        </div>
+                    )}
                 </form>
 
                 <div className="space-x-1 text-center text-sm text-muted-foreground">

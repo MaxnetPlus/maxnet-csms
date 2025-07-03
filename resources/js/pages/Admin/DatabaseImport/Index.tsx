@@ -359,11 +359,10 @@ export default function DatabaseImportIndex() {
                                     </p>
                                 )}
                             </div>
-
                             {error && (
-                                <Alert variant="destructive">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <AlertDescription>{error}</AlertDescription>
+                                <Alert variant="destructive" className="dark:border-red-800 dark:bg-red-900 dark:text-red-100">
+                                    <AlertCircle className="h-4 w-4 dark:text-red-300" />
+                                    <AlertDescription className="dark:text-red-100">{error}</AlertDescription>
                                 </Alert>
                             )}
 
@@ -442,39 +441,39 @@ export default function DatabaseImportIndex() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <FileText className="h-5 w-5" />
-                                Import Guidelines
+                                Panduan Impor
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <h4 className="mb-2 font-medium">File Requirements</h4>
+                                <h4 className="mb-2 font-medium">Persyaratan File</h4>
                                 <ul className="space-y-1 text-sm text-muted-foreground">
-                                    <li>• SQL file format (.sql)</li>
-                                    <li>• Maximum file size: 150MB</li>
-                                    <li>• Must contain INSERT statements</li>
-                                    <li>• UTF-8 encoding recommended</li>
+                                    <li>• Format file SQL (.sql)</li>
+                                    <li>• Ukuran file maksimum: 150MB</li>
+                                    <li>• Harus berisi perintah INSERT</li>
+                                    <li>• Disarankan menggunakan encoding UTF-8</li>
                                 </ul>
                             </div>
 
                             <div>
-                                <h4 className="mb-2 font-medium">Expected Tables</h4>
+                                <h4 className="mb-2 font-medium">Tabel yang Diharapkan</h4>
                                 <ul className="space-y-1 text-sm text-muted-foreground">
                                     <li>
-                                        • <code>customers</code> - Customer master data
+                                        • <code>customers</code> - Data master pelanggan
                                     </li>
                                     <li>
-                                        • <code>subscriptions</code> - Subscription records
+                                        • <code>subscriptions</code> - Data langganan
                                     </li>
                                 </ul>
                             </div>
 
                             <div>
-                                <h4 className="mb-2 font-medium">Import Process</h4>
+                                <h4 className="mb-2 font-medium">Proses Import</h4>
                                 <ul className="space-y-1 text-sm text-muted-foreground">
-                                    <li>• Customers imported first</li>
-                                    <li>• Subscriptions linked to customers</li>
-                                    <li>• Duplicates will be updated</li>
-                                    <li>• Invalid data will be skipped</li>
+                                    <li>• Pelanggan diimpor terlebih dahulu</li>
+                                    <li>• Langganan akan dikaitkan ke pelanggan</li>
+                                    <li>• Data duplikat akan diperbarui</li>
+                                    <li>• Data tidak valid akan dilewati</li>
                                 </ul>
                             </div>
                         </CardContent>

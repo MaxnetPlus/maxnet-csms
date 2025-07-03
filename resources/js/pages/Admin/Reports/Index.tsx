@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DataTable } from '@/components/ui/data-table';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem, Customer, Subscription } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { Activity, BarChart3, Calendar, Database, Download, FileText, TrendingUp, Users } from 'lucide-react';
 
 interface Props {
@@ -33,6 +33,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ReportsIndex({ stats, recentImports, subscriptionsByStatus, monthlyGrowth }: Props) {
+    const { auth } = usePage().props as any;
+    const userPermissions = auth?.user?.permissions || [];
+    console.log('User Permissions:', userPermissions);
     const handleExport = (type: 'customers' | 'subscriptions') => {
         window.open(`/admin/reports/export?type=${type}`, '_blank');
     };
@@ -262,12 +265,14 @@ export default function ReportsIndex({ stats, recentImports, subscriptionsByStat
                                     Import Data
                                 </Link>
                             </Button>
-                            <Button asChild variant="outline">
-                                <Link href="/admin/users">
-                                    <Users className="mr-2 h-4 w-4" />
-                                    Manage Users
-                                </Link>
-                            </Button>
+                            {userPermissions.includes('manage-users') && (
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/users">
+                                        <Users className="mr-2 h-4 w-4" />
+                                        Manage Users
+                                    </Link>
+                                </Button>
+                            )}
                             <Button variant="outline" onClick={() => handleExport('customers')}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 Generate Report

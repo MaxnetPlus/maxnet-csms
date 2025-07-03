@@ -91,6 +91,12 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
                         {processing && <LoaderCircle className="h-4 w-4 animate-spin" />}
                         Reset password
                     </Button>
+
+                    {(errors as any).throttle && (
+                        <div className="rounded-md bg-red-50 p-3 text-center dark:bg-red-900/30">
+                            <div className="text-sm text-red-800 dark:text-red-200">{(errors as any).throttle}</div>
+                        </div>
+                    )}
                 </div>
             </form>
         </AuthLayout>

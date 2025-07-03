@@ -30,22 +30,28 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function InvitationHistory({ invitations, roles, filters }: Props) {
     const { auth } = usePage().props as any;
     const userPermissions = auth?.user?.permissions || [];
-    
+
     const [search, setSearch] = useState(filters.search || '');
-    const [selectedStatus, setSelectedStatus] = useState(filters.status || '');
-    const [selectedRole, setSelectedRole] = useState(filters.role || '');
+    const [selectedStatus, setSelectedStatus] = useState(filters.status || 'all');
+    const [selectedRole, setSelectedRole] = useState(filters.role || 'all');
     const [deleteInvitation, setDeleteInvitation] = useState<Invitation | null>(null);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        router.get(
-            '/admin/users/invitation-history',
-            { search, status: selectedStatus, role: selectedRole },
-            {
-                preserveState: true,
-                replace: true,
-            },
-        );
+        const params: any = { search };
+
+        // Only include status and role if they're not "all"
+        if (selectedStatus !== 'all') {
+            params.status = selectedStatus;
+        }
+        if (selectedRole !== 'all') {
+            params.role = selectedRole;
+        }
+
+        router.get('/admin/users/invitation-history', params, {
+            preserveState: true,
+            replace: true,
+        });
     };
 
     const handleDeleteInvitation = (invitation: Invitation) => {
@@ -61,7 +67,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
     const getStatusBadge = (invitation: Invitation) => {
         const now = new Date();
         const expiresAt = new Date(invitation.expires_at);
-        
+
         if (invitation.accepted_at) {
             return <Badge variant="default">Accepted</Badge>;
         } else if (expiresAt < now) {
@@ -74,18 +80,10 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
     const getStatusActions = (invitation: Invitation) => {
         const now = new Date();
         const expiresAt = new Date(invitation.expires_at);
-        
-        if (invitation.accepted_at) {
-            return null; // No actions for accepted invitations
-        } else if (expiresAt < now) {
+            if (expiresAt < now) {
             return (
                 <div className="flex space-x-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleResendInvitation(invitation)}
-                        title="Resend invitation"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleResendInvitation(invitation)} title="Resend invitation">
                         <RefreshCcw className="h-4 w-4" />
                     </Button>
                     <Button
@@ -102,12 +100,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
         } else {
             return (
                 <div className="flex space-x-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleResendInvitation(invitation)}
-                        title="Resend invitation"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => handleResendInvitation(invitation)} title="Resend invitation">
                         <RefreshCcw className="h-4 w-4" />
                     </Button>
                     <Button
@@ -138,9 +131,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
         {
             header: 'Role',
             accessorKey: 'role' as keyof Invitation,
-            cell: (invitation: Invitation) => (
-                <Badge variant="outline">{invitation.role}</Badge>
-            ),
+            cell: (invitation: Invitation) => <Badge variant="outline">{invitation.role}</Badge>,
         },
         {
             header: 'Invited By',
@@ -186,10 +177,10 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
 
     const getInvitationStats = () => {
         const total = invitations.total;
-        const pending = invitations.data.filter(inv => !inv.accepted_at && new Date(inv.expires_at) > new Date()).length;
-        const accepted = invitations.data.filter(inv => inv.accepted_at).length;
-        const expired = invitations.data.filter(inv => !inv.accepted_at && new Date(inv.expires_at) <= new Date()).length;
-        
+        const pending = invitations.data.filter((inv) => !inv.accepted_at && new Date(inv.expires_at) > new Date()).length;
+        const accepted = invitations.data.filter((inv) => inv.accepted_at).length;
+        const expired = invitations.data.filter((inv) => !inv.accepted_at && new Date(inv.expires_at) <= new Date()).length;
+
         return { total, pending, accepted, expired };
     };
 
@@ -202,7 +193,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold flex items-center gap-2">
+                        <h1 className="flex items-center gap-2 text-3xl font-bold">
                             <History className="h-8 w-8" />
                             Invitation History
                         </h1>
@@ -227,7 +218,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
                 </div>
 
                 {/* Statistics Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle className="text-sm font-medium">Total Invitations</CardTitle>
@@ -275,11 +266,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
                     <CardContent>
                         <form onSubmit={handleSearch} className="flex gap-4">
                             <div className="flex-1">
-                                <Input 
-                                    placeholder="Search by email or inviter name..." 
-                                    value={search} 
-                                    onChange={(e) => setSearch(e.target.value)} 
-                                />
+                                <Input placeholder="Search by email or inviter name..." value={search} onChange={(e) => setSearch(e.target.value)} />
                             </div>
                             <div className="w-48">
                                 <Select value={selectedStatus} onValueChange={setSelectedStatus}>
@@ -287,7 +274,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
                                         <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Status</SelectItem>
+                                        <SelectItem value="all">All Status</SelectItem>
                                         <SelectItem value="pending">Pending</SelectItem>
                                         <SelectItem value="accepted">Accepted</SelectItem>
                                         <SelectItem value="expired">Expired</SelectItem>
@@ -300,7 +287,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
                                         <SelectValue placeholder="All Roles" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">All Roles</SelectItem>
+                                        <SelectItem value="all">All Roles</SelectItem>
                                         {roles.map((role) => (
                                             <SelectItem key={role.id} value={role.name}>
                                                 {role.name}
@@ -324,12 +311,7 @@ export default function InvitationHistory({ invitations, roles, filters }: Props
                         <CardDescription>Complete history of all user invitations</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <DataTable 
-                            columns={columns} 
-                            data={invitations.data} 
-                            searchKey="email" 
-                            searchPlaceholder="Search invitations..." 
-                        />
+                        <DataTable columns={columns} data={invitations.data} searchKey="email" searchPlaceholder="Search invitations..." />
 
                         {/* Pagination */}
                         <div className="flex items-center justify-between space-x-2 py-4">

@@ -30,5 +30,16 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (\Illuminate\Http\Exceptions\ThrottleRequestsException $e, $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Terlalu banyak percobaan. Silakan coba lagi dalam ' . $e->getHeaders()['Retry-After'] . ' detik.',
+                    'retry_after' => $e->getHeaders()['Retry-After']
+                ], 429);
+            }
+
+            return back()->withErrors([
+                'throttle' => 'Terlalu banyak percobaan. Silakan coba lagi dalam ' . $e->getHeaders()['Retry-After'] . ' detik.'
+            ])->withInput();
+        });
     })->create();

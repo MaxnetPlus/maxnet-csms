@@ -1,14 +1,22 @@
-import AppLogoIcon from './app-logo-icon';
+interface AppLogoProps {
+    className?: string;
+    normalLogoClassName?: string;
+    collapsedLogoClassName?: string;
+}
 
-export default function AppLogo() {
+export default function AppLogo({ className = '', normalLogoClassName = '', collapsedLogoClassName = '' }: AppLogoProps) {
     return (
-        <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                <AppLogoIcon className="size-5 fill-current text-white dark:text-black" />
-            </div>
-            <div className="ml-1 grid flex-1 text-left text-sm">
-                <span className="mb-0.5 truncate leading-tight font-semibold">Laravel Starter Kit</span>
-            </div>
-        </>
+        <div className={`flex w-full items-center justify-center ${className}`}>
+            <img
+                src="/assets/logo.png"
+                alt="App Logo"
+                className={`mx-auto h-8 w-auto flex-shrink-0 group-data-[collapsible=icon]:hidden ${normalLogoClassName}`}
+            />
+            <img
+                src="/assets/logo-collapsible.png"
+                alt="App Logo"
+                className={`mx-auto hidden h-8 w-auto flex-shrink-0 group-data-[collapsible=icon]:block ${collapsedLogoClassName}`}
+            />
+        </div>
     );
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,10 +33,23 @@ class PasswordResetLinkController extends Controller
             'email' => 'required|email',
         ]);
 
-        Password::sendResetLink(
+        // Debug: Log the attempt
+        Log::info('Password reset requested for: ' . $request->email);
+
+        // Send password reset link
+        $status = Password::sendResetLink(
             $request->only('email')
         );
 
-        return back()->with('status', __('A reset link will be sent if the account exists.'));
+        // Debug: Log the result
+        Log::info('Password reset status: ' . $status);
+
+        // Check if the reset link was sent successfully
+        if ($status === Password::RESET_LINK_SENT) {
+            return back()->with('status', __('Password reset link sent to your email.'));
+        }
+
+        // If user not found or other error
+        return back()->withErrors(['email' => __($status)]);
     }
 }
