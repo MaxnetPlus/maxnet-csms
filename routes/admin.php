@@ -54,6 +54,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('database-import', [DatabaseImportController::class, 'index'])->name('database-import.index');
         Route::post('database-import/upload', [DatabaseImportController::class, 'upload'])->name('database-import.upload');
         Route::post('database-import/progress', [DatabaseImportController::class, 'progress'])->name('database-import.progress');
+        Route::post('database-import/results', [DatabaseImportController::class, 'getResults'])->name('database-import.results');
         Route::post('database-import/skipped-records', [DatabaseImportController::class, 'getSkippedRecords'])->name('database-import.skipped-records');
     });
 

@@ -8,7 +8,7 @@ import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 import { AlertCircle, AlertTriangle, CheckCircle, Clock, Database, FileText, Upload, X } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
@@ -170,7 +170,6 @@ export default function DatabaseImportIndex() {
         },
         [getCsrfToken],
     );
-
     const trackProgress = useCallback(
         async (progressId: string) => {
             try {
@@ -193,14 +192,21 @@ export default function DatabaseImportIndex() {
                 }
 
                 const progressData: ProgressData = await response.json();
-                setProgress(progressData.percentage);
+                const currentProgress = Math.max(0, Math.min(100, progressData.percentage));
+
+                setProgress(currentProgress);
                 setProgressMessage(progressData.message);
 
                 // Add to detailed logs if it's a new message
                 setDetailedLogs((prev) => {
+                    const timestamp = new Date().toLocaleTimeString();
+                    const newMessage = `${timestamp}: ${progressData.message}`;
+
+                    // Check if this is a different message from the last one
                     const lastLog = prev[prev.length - 1];
-                    const newMessage = `${new Date().toLocaleTimeString()}: ${progressData.message}`;
-                    if (!lastLog || !lastLog.includes(progressData.message)) {
+                    const lastMessage = lastLog ? lastLog.split(': ').slice(1).join(': ') : '';
+
+                    if (progressData.message !== lastMessage) {
                         return [...prev, newMessage];
                     }
                     return prev;
@@ -208,10 +214,124 @@ export default function DatabaseImportIndex() {
 
                 // Continue tracking if not complete and not failed
                 if (progressData.percentage >= 0 && progressData.percentage < 100) {
-                    setTimeout(() => trackProgress(progressId), 500);
+                    setTimeout(() => trackProgress(progressId), 1000); // Increased interval to 1 second
+                } else if (progressData.percentage === 100) {
+                    // Import completed, fetch final results
+                    setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Fetching final results...`]);
+
+                    // Add a delay to ensure results are cached
+                    setTimeout(async () => {
+                        try {
+                            // Try multiple times to fetch the results with increasing delays
+                            let maxAttempts = 3;
+                            let attempt = 0;
+                            let resultsData = null;
+
+                            while (attempt < maxAttempts) {
+                                attempt++;
+                                setDetailedLogs((prev) => [
+                                    ...prev,
+                                    `${new Date().toLocaleTimeString()}: Fetching final results (attempt ${attempt}/${maxAttempts})...`,
+                                ]);
+
+                                const resultsResponse = await fetch('/admin/database-import/results', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': csrfToken,
+                                        Accept: 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        progress_id: progressId,
+                                    }),
+                                });
+
+                                console.log(`Results API response status (attempt ${attempt}):`, resultsResponse.status);
+
+                                if (resultsResponse.ok) {
+                                    resultsData = await resultsResponse.json();
+                                    console.log(`Results response (attempt ${attempt}):`, resultsData);
+
+                                    if (resultsData.success && resultsData.data) {
+                                        console.log('Setting result to:', resultsData.data);
+                                        setResult(resultsData.data);
+                                        setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Results retrieved successfully!`]);
+                                        break; // Exit the retry loop if successful
+                                    }
+                                }
+
+                                if (attempt < maxAttempts) {
+                                    // Wait longer with each attempt
+                                    const delayMs = attempt * 2000;
+                                    setDetailedLogs((prev) => [
+                                        ...prev,
+                                        `${new Date().toLocaleTimeString()}: Results not ready, waiting ${delayMs / 1000} seconds...`,
+                                    ]);
+                                    await new Promise((resolve) => setTimeout(resolve, delayMs));
+                                }
+                            }
+
+                            // If we still don't have results after all attempts, use a placeholder
+                            if (!resultsData?.success || !resultsData?.data) {
+                                console.log('Results not available after multiple attempts, using placeholder');
+                                setDetailedLogs((prev) => [
+                                    ...prev,
+                                    `${new Date().toLocaleTimeString()}: Warning: Results not available after multiple attempts`,
+                                ]);
+
+                                // Create placeholder result if no results were returned
+                                const placeholderResult: ImportResult = {
+                                    progress_id: progressId,
+                                    customers: {
+                                        imported: 0,
+                                        skipped: 0,
+                                        total: 0,
+                                    },
+                                    subscriptions: {
+                                        imported: 0,
+                                        skipped: 0,
+                                        total: 0,
+                                    },
+                                };
+                                setResult(placeholderResult);
+                            }
+                        } catch (error) {
+                            console.error('Failed to fetch results:', error);
+                            setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Warning: Could not fetch detailed results`]);
+
+                            // Create placeholder result if error occurs but progress is 100%
+                            console.log('Creating placeholder result due to exception');
+                            const placeholderResult: ImportResult = {
+                                progress_id: progressId,
+                                customers: {
+                                    imported: 0,
+                                    skipped: 0,
+                                    total: 0,
+                                },
+                                subscriptions: {
+                                    imported: 0,
+                                    skipped: 0,
+                                    total: 0,
+                                },
+                            };
+                            setResult(placeholderResult);
+                        }
+
+                        // Set uploading to false when complete
+                        setUploading(false);
+                        console.log('Import process completed, uploading set to false, progress:', progressData.percentage);
+                    }, 2000); // Initial delay before starting the retry attempts
+                } else if (progressData.percentage < 0) {
+                    // Import failed
+                    setError(progressData.message);
+                    setUploading(false);
                 }
             } catch (error) {
                 console.error('Progress tracking error:', error);
+                // Don't stop tracking on error, try again
+                if (progressId) {
+                    setTimeout(() => trackProgress(progressId), 2000);
+                }
             }
         },
         [getCsrfToken],
@@ -221,17 +341,23 @@ export default function DatabaseImportIndex() {
         if (!file) return;
 
         setUploading(true);
+        console.log('Starting upload process, uploading set to true');
         setProgress(0);
         setProgressMessage('Starting import...');
         setResult(null);
         setError(null);
-        setDetailedLogs(['Import started...']);
+        setDetailedLogs([`${new Date().toLocaleTimeString()}: Import started...`]);
 
         try {
             const formData = new FormData();
             formData.append('sql_file', file);
 
             const csrfToken = await getCsrfToken();
+
+            // Add progress update for file upload
+            setProgress(5);
+            setProgressMessage('Uploading file...');
+            setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Uploading SQL file...`]);
 
             const response = await fetch('/admin/database-import/upload', {
                 method: 'POST',
@@ -268,15 +394,23 @@ export default function DatabaseImportIndex() {
             }
 
             if (response.ok && data.success) {
-                setResult(data.data);
-                setProgress(100);
-                setProgressMessage('Import completed successfully!');
-                setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Import completed successfully!`]);
-
-                // Start tracking progress if we have a progress_id
+                // Start tracking progress immediately if we have a progress_id
                 if (data.data.progress_id) {
                     setProgressId(data.data.progress_id);
-                    trackProgress(data.data.progress_id);
+                    setDetailedLogs((prev) => [
+                        ...prev,
+                        `${new Date().toLocaleTimeString()}: File uploaded successfully, starting import process...`,
+                    ]);
+
+                    // Start progress tracking
+                    await trackProgress(data.data.progress_id);
+                } else {
+                    // Fallback for immediate completion (shouldn't happen with async import)
+                    setResult(data.data);
+                    setProgress(100);
+                    setProgressMessage('Import completed successfully!');
+                    setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Import completed successfully!`]);
+                    setUploading(false);
                 }
             } else {
                 throw new Error(data.message || 'Import failed');
@@ -287,7 +421,6 @@ export default function DatabaseImportIndex() {
             setProgress(0);
             setProgressMessage('Import failed');
             setDetailedLogs((prev) => [...prev, `${new Date().toLocaleTimeString()}: Error - ${errorMessage}`]);
-        } finally {
             setUploading(false);
         }
     }, [file, trackProgress]);
@@ -329,6 +462,11 @@ export default function DatabaseImportIndex() {
         // Navigate to reports page
         window.location.href = '/admin/reports';
     };
+
+    // Add debug effect to monitor result state changes
+    useEffect(() => {
+        console.log('Result state changed:', result);
+    }, [result]);
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

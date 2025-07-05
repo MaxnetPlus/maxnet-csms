@@ -128,12 +128,12 @@ class CancelSubscriptionController extends Controller
                     'subscription_id' => $subscription->subscription_id,
                     'subscription_address' => $subscription->subscription_address,
                     'subscription_description' => $subscription->subscription_description,
+                    'lng' => $coords['lng'],
                     'subscription_status' => 'CANCELED',
                     'serv_id' => $subscription->serv_id,
                     'lat' => $coords['lat'],
-                    'lng' => $coords['lng'],
                     'coordinates' => $subscription->subscription_maps,
-                    'created_at' => $subscription->created_at->format('Y-m-d H:i'),
+                    'created_at' => $subscription->created_at ? $subscription->created_at->format('Y-m-d H:i') : null,
                     'dismantle_at' => $subscription->dismantle_at ? $subscription->dismantle_at->format('Y-m-d H:i') : null,
                 ];
             }
@@ -213,7 +213,7 @@ class CancelSubscriptionController extends Controller
                     'lat' => $coords['lat'],
                     'lng' => $coords['lng'],
                     'coordinates' => $subscription->subscription_maps,
-                    'created_at' => $subscription->created_at->format('Y-m-d H:i'),
+                    'created_at' => $subscription->created_at ? $subscription->created_at->format('Y-m-d H:i') : null,
                     'dismantle_at' => $subscription->dismantle_at ? $subscription->dismantle_at->format('Y-m-d H:i') : null,
                 ];
 
@@ -303,7 +303,7 @@ class CancelSubscriptionController extends Controller
                 'coordinates' => $subscription->subscription_maps ?? 'N/A',
                 'lat' => $coords ? $coords['lat'] : null,
                 'lng' => $coords ? $coords['lng'] : null,
-                'created_at' => $subscription->created_at->format('Y-m-d H:i'),
+                'created_at' => $subscription->created_at ? $subscription->created_at->format('Y-m-d H:i') : null,
                 'dismantle_at' => $subscription->dismantle_at ? $subscription->dismantle_at->format('Y-m-d H:i') : null,
             ];
         });

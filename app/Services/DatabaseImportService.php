@@ -65,6 +65,124 @@ class DatabaseImportService
         }
     }
 
+    public function startAsyncImport(UploadedFile $file): array
+    {
+        $progressId = Str::uuid()->toString();
+
+        // Initialize progress
+        $this->updateProgress($progressId, 0, 'Starting import...');
+
+        // Store file temporarily
+        $tempPath = storage_path('app/temp/' . $progressId . '.sql');
+
+        // Ensure temp directory exists
+        if (!file_exists(dirname($tempPath))) {
+            mkdir(dirname($tempPath), 0755, true);
+        }
+
+        $file->move(dirname($tempPath), basename($tempPath));
+
+        // Start background processing
+        $this->processImportAsync($progressId, $tempPath);
+
+        return [
+            'progress_id' => $progressId,
+            'status' => 'started',
+            'message' => 'Import process started'
+        ];
+    }
+
+    private function processImportAsync(string $progressId, string $filePath): void
+    {
+        // Use register_shutdown_function to continue processing after response is sent
+        register_shutdown_function(function () use ($progressId, $filePath) {
+            // Ensure we don't run out of time
+            set_time_limit(0);
+            ignore_user_abort(true);
+
+            try {
+                // Update progress to indicate file processing has started
+                $this->updateProgress($progressId, 5, 'Processing uploaded file...');
+
+                // Read and parse SQL file
+                $this->updateProgress($progressId, 10, 'Reading SQL file...');
+                $sqlContent = file_get_contents($filePath);
+
+                if (!$sqlContent) {
+                    throw new \Exception('Failed to read SQL file');
+                }
+
+                // Parse customers data
+                $this->updateProgress($progressId, 20, 'Parsing customers data...');
+                $customersData = $this->parseCustomersFromSql($sqlContent);
+                $this->updateProgress($progressId, 25, 'Found ' . count($customersData) . ' customer records');
+
+                // Parse subscriptions data
+                $this->updateProgress($progressId, 30, 'Parsing subscriptions data...');
+                $subscriptionsData = $this->parseSubscriptionsFromSql($sqlContent);
+                $this->updateProgress($progressId, 35, 'Found ' . count($subscriptionsData) . ' subscription records');
+
+                // Import customers first
+                $this->updateProgress($progressId, 40, 'Importing customers...');
+                $customerResults = $this->importCustomers($customersData, $progressId);
+                $this->updateProgress($progressId, 65, 'Customers import completed: ' . $customerResults['imported'] . ' imported, ' . $customerResults['skipped'] . ' skipped');
+
+                // Import subscriptions
+                $this->updateProgress($progressId, 70, 'Importing subscriptions...');
+                $subscriptionResults = $this->importSubscriptions($subscriptionsData, $progressId);
+                $this->updateProgress($progressId, 95, 'Subscriptions import completed: ' . $subscriptionResults['imported'] . ' imported, ' . $subscriptionResults['skipped'] . ' skipped');
+
+                // Store final results
+                $finalResults = [
+                    'progress_id' => $progressId,
+                    'customers' => $customerResults,
+                    'subscriptions' => $subscriptionResults,
+                ];
+
+                // Cache final results for 24 hours (for testing purposes)
+                Log::info('Caching import results', [
+                    'progress_id' => $progressId,
+                    'cache_key' => "import_results_{$progressId}",
+                    'customers_imported' => $customerResults['imported'],
+                    'subscriptions_imported' => $subscriptionResults['imported'],
+                ]);
+
+                // Store with the file driver to ensure persistence
+                Cache::driver('file')->put("import_results_{$progressId}", $finalResults, 86400); // 24 hours
+
+                $this->updateProgress($progressId, 100, 'Import completed successfully!');
+
+                // Clean up temp file
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
+            } catch (\Exception $e) {
+                $this->updateProgress($progressId, -1, 'Import failed: ' . $e->getMessage());
+                Log::error('Async database import failed', [
+                    'progress_id' => $progressId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+
+                // Clean up temp file on error
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
+            }
+        });
+
+        // Send response immediately
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        } else {
+            // Alternative for non-FPM environments
+            if (ob_get_level()) {
+                ob_end_flush();
+            }
+            flush();
+        }
+    }
+
     private function parseCustomersFromSql(string $sqlContent): array
     {
         $customers = [];
@@ -877,26 +995,68 @@ class DatabaseImportService
 
     private function updateProgress(string $progressId, int $percentage, string $message): void
     {
-        Cache::put("import_progress_{$progressId}", [
+        $data = [
             'percentage' => $percentage,
             'message' => $message,
             'updated_at' => now()->toISOString(),
-        ], 3600); // Cache for 1 hour
+        ];
+
+        // Store with both default and file drivers to ensure persistence
+        Cache::put("import_progress_{$progressId}", $data, 3600); // 1 hour
+        Cache::driver('file')->put("import_progress_{$progressId}", $data, 3600); // 1 hour
     }
 
     public function getProgress(string $progressId): array
     {
-        return Cache::get("import_progress_{$progressId}", [
-            'percentage' => 0,
-            'message' => 'Not started',
-            'updated_at' => now()->toISOString(),
-        ]);
+        // Try file cache first
+        $progress = Cache::driver('file')->get("import_progress_{$progressId}");
+
+        // Fallback to default cache if not found
+        if (!$progress) {
+            $progress = Cache::get("import_progress_{$progressId}");
+        }
+
+        // Default value if not found in either cache
+        if (!$progress) {
+            $progress = [
+                'percentage' => 0,
+                'message' => 'Not started',
+                'updated_at' => now()->toISOString(),
+            ];
+        }
+
+        return $progress;
     }
 
     public function getSkippedRecords(string $progressId, string $type): array
     {
         $cacheKey = "import_skipped_{$type}_{$progressId}";
         return Cache::get($cacheKey, []);
+    }
+
+    public function getResults(string $progressId): ?array
+    {
+        // Try both file and default cache to ensure we find the results
+        $results = Cache::driver('file')->get("import_results_{$progressId}");
+
+        if (!$results) {
+            // Fallback to the default cache driver
+            $results = Cache::get("import_results_{$progressId}");
+        }
+
+        Log::info('Getting cached results', [
+            'progress_id' => $progressId,
+            'cache_key' => "import_results_{$progressId}",
+            'results_exists' => $results ? 'yes' : 'no',
+            'results_data' => $results ? [
+                'customers_imported' => $results['customers']['imported'] ?? 'unknown',
+                'subscriptions_imported' => $results['subscriptions']['imported'] ?? 'unknown',
+            ] : 'none',
+            'cache_driver' => config('cache.default'),
+            'file_cache_checked' => 'yes',
+        ]);
+
+        return $results;
     }
 
     private function validateSubscriptionData(array $subscriptionData): bool
