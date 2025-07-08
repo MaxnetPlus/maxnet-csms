@@ -59,6 +59,10 @@ interface Props {
 }
 
 export default function CancelSubscriptionIndex({ customers, mapData, stats, filters }: Props) {
+    // Debug log untuk melihat data awal
+    console.log('Initial mapData from props:', mapData.length);
+    console.log('Stats from props:', stats);
+
     const mapRef = useRef<HTMLDivElement>(null);
     const leafletMapRef = useRef<L.Map | null>(null);
     const markersRef = useRef<L.LayerGroup | null>(null);
@@ -66,8 +70,13 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState(filters.search || '');
     const [currentMapData, setCurrentMapData] = useState<MapDataPoint[]>(mapData);
+    const [allMapData, setAllMapData] = useState<MapDataPoint[]>(mapData); // Cache semua data marker, gunakan props sebagai initial
     const [mapBounds, setMapBounds] = useState<Bounds | null>(null);
     const [selectedMarker, setSelectedMarker] = useState<MapDataPoint | null>(null);
+    const [isMapMoving, setIsMapMoving] = useState(false); // Track pergerakan map
+    const [useClusterMode, setUseClusterMode] = useState(false); // Mode clustering untuk performa
+    const [currentZoom, setCurrentZoom] = useState(5); // Track zoom level
+    const [totalDataInDB, setTotalDataInDB] = useState(0); // Total data di database
 
     // Debounce utility function
     const debounce = (func: Function, delay: number) => {
@@ -82,8 +91,17 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
     useEffect(() => {
         if (!mapRef.current || leafletMapRef.current) return;
 
-        // Create map with Indonesia center
-        const map = L.map(mapRef.current).setView([-2.5, 118], 5);
+        // Create map with Indonesia center and prevent scroll wheel zoom from bubbling
+        const map = L.map(mapRef.current, {
+            scrollWheelZoom: true,
+            // Prevent map from stealing focus and causing page scroll
+            keyboard: false,
+            // Reduce zoom animation time for better performance
+            zoomAnimationThreshold: 4,
+            zoomAnimation: true,
+            fadeAnimation: true,
+            markerZoomAnimation: true,
+        }).setView([-2.5, 118], 5);
         leafletMapRef.current = map;
 
         // Add OpenStreetMap tiles
@@ -94,8 +112,34 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
         // Create marker layer group
         markersRef.current = L.layerGroup().addTo(map);
 
-        // Add event listeners for map movement with debouncing
-        const updateBounds = debounce(() => {
+        // Prevent page scroll when scrolling on map
+        map.getContainer().addEventListener('wheel', (e) => {
+            e.stopPropagation();
+        });
+
+        // Prevent page scroll when using touch gestures on map
+        map.getContainer().addEventListener('touchstart', (e) => {
+            e.stopPropagation();
+        });
+
+        map.getContainer().addEventListener('touchmove', (e) => {
+            e.stopPropagation();
+        });
+
+        // Load semua data marker saat pertama kali (tanpa bounds untuk mendapatkan semua data)
+        loadAllMapData(search); // Pass initial search value
+
+        // Event listener untuk tracking pergerakan map
+        map.on('movestart', () => {
+            setIsMapMoving(true);
+        });
+
+        map.on('zoomstart', () => {
+            setIsMapMoving(true);
+        });
+
+        // Debounced function untuk update bounds dan refresh tabel setelah map berhenti bergerak
+        const updateBoundsAndTable = debounce(() => {
             const bounds = map.getBounds();
             const newBounds = {
                 north: bounds.getNorth(),
@@ -104,14 +148,32 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                 west: bounds.getWest(),
             };
             setMapBounds(newBounds);
-            loadMapData(newBounds, search);
-        }, 300);
+            setIsMapMoving(false);
+            // Tidak perlu load map data lagi karena sudah di-cache, hanya update bounds untuk tabel
+        }, 2000); // 2 detik setelah berhenti bergerak
 
-        map.on('moveend', updateBounds);
-        map.on('zoomend', updateBounds);
+        map.on('moveend', updateBoundsAndTable);
+        map.on('zoomend', updateBoundsAndTable);
+
+        // Track zoom changes for clustering decisions
+        map.on('zoomend', () => {
+            const zoom = map.getZoom();
+            setCurrentZoom(zoom);
+
+            // Reload data if zoom changed significantly and we have many points
+            if (Math.abs(zoom - currentZoom) > 2 && allMapData.length > 1000) {
+                loadAllMapData(search);
+            }
+        });
 
         // Initial bounds update
-        updateBounds();
+        const initialBounds = map.getBounds();
+        setMapBounds({
+            north: initialBounds.getNorth(),
+            south: initialBounds.getSouth(),
+            east: initialBounds.getEast(),
+            west: initialBounds.getWest(),
+        });
 
         return () => {
             if (leafletMapRef.current) {
@@ -121,45 +183,128 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
         };
     }, []);
 
-    // Debounced load map data to prevent too many requests
-    const debouncedLoadMapData = useCallback(
-        debounce((bounds: Bounds | null, searchTerm: string) => {
-            loadMapDataInternal(bounds, searchTerm);
-        }, 500),
-        [],
+    // Load semua data marker untuk di-cache (tanpa bounds)
+    const loadAllMapData = useCallback(
+        async (searchTerm?: string) => {
+            setLoading(true);
+            try {
+                // Determine if we should use clustering based on total data
+                const shouldUseCluster = totalDataInDB > 1000 || allMapData.length > 1000;
+
+                const params = new URLSearchParams();
+                if (searchTerm) params.append('search', searchTerm);
+
+                if (shouldUseCluster && currentZoom < 12) {
+                    // Use clustering for better performance
+                    params.append('zoom', currentZoom.toString());
+                    if (mapBounds) {
+                        params.append('bounds[north]', mapBounds.north.toString());
+                        params.append('bounds[south]', mapBounds.south.toString());
+                        params.append('bounds[east]', mapBounds.east.toString());
+                        params.append('bounds[west]', mapBounds.west.toString());
+                    }
+
+                    const response = await fetch(`/admin/cancel-subscription/clustered-map-data?${params}`);
+                    const data = await response.json();
+
+                    console.log('Using clustered data:', data.cluster_count, 'clusters for', data.total_points, 'points');
+
+                    // Convert clusters to individual points for now (can be enhanced later)
+                    const clusterData: MapDataPoint[] = [];
+                    data.clusters.forEach((cluster: any) => {
+                        cluster.items.forEach((item: any) => {
+                            clusterData.push({
+                                id: item.id,
+                                customer_id: '',
+                                customer_name: item.customer_name,
+                                customer_phone: '',
+                                customer_email: '',
+                                subscription_id: item.id,
+                                subscription_address: item.address,
+                                subscription_description: '',
+                                subscription_status: 'CANCELED',
+                                serv_id: item.serv_id,
+                                lat: cluster.lat,
+                                lng: cluster.lng,
+                                coordinates: `${cluster.lat},${cluster.lng}`,
+                                created_at: '',
+                                dismantle_at: null,
+                            });
+                        });
+                    });
+
+                    setAllMapData(clusterData);
+                    setCurrentMapData(clusterData);
+                    updateMapMarkers(clusterData);
+                    setUseClusterMode(true);
+                } else {
+                    // Use regular data loading
+                    params.append('all', 'true');
+                    params.append('limit', '5000'); // Increased limit
+
+                    console.log('Loading all map data with params:', params.toString());
+
+                    const response = await fetch(`/admin/cancel-subscription/map-data?${params}`);
+                    const data = await response.json();
+
+                    console.log('Received data:', data);
+                    console.log('Total records received:', data.data?.length || 0);
+                    console.log('Total in DB:', data.total_in_db || 'unknown');
+
+                    const allData = data.data || [];
+
+                    // Update total data in DB for future decisions
+                    if (data.total_in_db) {
+                        setTotalDataInDB(data.total_in_db);
+                    }
+
+                    // Jika data yang diterima lebih sedikit dari data props awal, gunakan data props
+                    const finalData = allData.length < mapData.length ? mapData : allData;
+
+                    console.log('Using data:', finalData.length > allData.length ? 'props data' : 'fetched data');
+                    console.log('Final total records:', finalData.length);
+
+                    setAllMapData(finalData);
+                    setCurrentMapData(finalData);
+                    updateMapMarkers(finalData);
+                    setUseClusterMode(false);
+                }
+            } catch (error) {
+                console.error('Error loading all map data:', error);
+            } finally {
+                setLoading(false);
+            }
+        },
+        [currentZoom, mapBounds, totalDataInDB],
+    ); // Added dependencies
+
+    // Function untuk filter data berdasarkan bounds (dari cache)
+    const filterDataByBounds = useCallback(
+        (bounds: Bounds | null) => {
+            if (!bounds || allMapData.length === 0) return allMapData;
+
+            const filteredData = allMapData.filter((point) => {
+                if (!point.lat || !point.lng) return false;
+                return point.lat >= bounds.south && point.lat <= bounds.north && point.lng >= bounds.west && point.lng <= bounds.east;
+            });
+
+            return filteredData;
+        },
+        [allMapData],
     );
 
-    // Internal load map data function
-    const loadMapDataInternal = useCallback(async (bounds: Bounds | null, searchTerm: string) => {
-        if (!bounds) return;
+    // Debounced load map data to prevent too many requests - hanya untuk search
+    const debouncedLoadMapData = useCallback(
+        debounce((searchTerm: string) => {
+            loadAllMapData(searchTerm); // Pass search term sebagai parameter
+        }, 300),
+        [loadAllMapData],
+    );
 
-        setLoading(true);
-        try {
-            const params = new URLSearchParams();
-            if (searchTerm) params.append('search', searchTerm);
-            if (bounds) {
-                params.append('bounds[north]', bounds.north.toString());
-                params.append('bounds[south]', bounds.south.toString());
-                params.append('bounds[east]', bounds.east.toString());
-                params.append('bounds[west]', bounds.west.toString());
-            }
-
-            const response = await fetch(`/admin/cancel-subscription/map-data?${params}`);
-            const data = await response.json();
-
-            setCurrentMapData(data.data || []);
-            updateMapMarkers(data.data || []);
-        } catch (error) {
-            console.error('Error loading map data:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    // Public load map data function
+    // Public load map data function - hanya untuk search
     const loadMapData = useCallback(
-        (bounds: Bounds | null, searchTerm: string) => {
-            debouncedLoadMapData(bounds, searchTerm);
+        (searchTerm: string) => {
+            debouncedLoadMapData(searchTerm);
         },
         [debouncedLoadMapData],
     );
@@ -172,11 +317,14 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
             // Clear existing markers
             markersRef.current.clearLayers();
 
-            // Limit markers for performance (only show first 200 markers)
-            const limitedData = data.slice(0, 500);
+            // Adaptive marker limit based on performance
+            const maxMarkers = useClusterMode ? 1000 : 3000;
+            const limitedData = data.slice(0, maxMarkers);
 
-            // Batch marker creation to avoid blocking UI
-            const batchSize = 50;
+            console.log(`Displaying ${limitedData.length} of ${data.length} total markers (cluster mode: ${useClusterMode})`);
+
+            // Adaptive batch size based on data amount
+            const batchSize = data.length > 2000 ? 200 : 100;
             let currentIndex = 0;
 
             const addMarkerBatch = () => {
@@ -235,26 +383,36 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
 
                 // Continue with next batch if there are more markers
                 if (currentIndex < limitedData.length) {
-                    requestAnimationFrame(addMarkerBatch);
+                    // Use requestIdleCallback if available, otherwise use requestAnimationFrame
+                    if (typeof window.requestIdleCallback === 'function') {
+                        requestIdleCallback(addMarkerBatch, { timeout: 50 });
+                    } else {
+                        requestAnimationFrame(addMarkerBatch);
+                    }
                 }
             };
 
             // Start adding markers in batches
             if (limitedData.length > 0) {
-                requestAnimationFrame(addMarkerBatch);
+                // Use requestIdleCallback if available for better performance
+                if (typeof window.requestIdleCallback === 'function') {
+                    requestIdleCallback(addMarkerBatch, { timeout: 50 });
+                } else {
+                    requestAnimationFrame(addMarkerBatch);
+                }
             }
         },
         [selectedMarker],
     );
 
-    // Handle search with immediate feedback
+    // Handle search dengan reload semua data
     const handleSearch = useCallback(
         (searchTerm: string) => {
             setSearch(searchTerm);
-            // Cancel any pending debounced calls and load immediately for search
-            loadMapDataInternal(mapBounds, searchTerm);
+            // Reload semua data dengan search term baru
+            loadMapData(searchTerm);
         },
-        [mapBounds, loadMapDataInternal],
+        [loadMapData],
     );
 
     // Handle location click from table
@@ -265,12 +423,21 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
         }
     }, []);
 
-    // Update markers when selected marker changes to show different colors
+    // Update markers saat bounds berubah (dari cache, tidak perlu request baru)
     useEffect(() => {
-        if (currentMapData.length > 0) {
-            updateMapMarkers(currentMapData);
+        if (mapBounds && !isMapMoving) {
+            const filteredData = filterDataByBounds(mapBounds);
+            setCurrentMapData(filteredData);
         }
-    }, [selectedMarker, currentMapData, updateMapMarkers]);
+    }, [mapBounds, filterDataByBounds, isMapMoving]);
+
+    // Update markers saat search atau selectedMarker berubah
+    useEffect(() => {
+        if (allMapData.length > 0) {
+            const dataToShow = mapBounds && !isMapMoving ? filterDataByBounds(mapBounds) : allMapData;
+            updateMapMarkers(dataToShow);
+        }
+    }, [selectedMarker, allMapData, updateMapMarkers, mapBounds, filterDataByBounds, isMapMoving]);
 
     // Handle export
     const handleExport = async () => {
@@ -449,18 +616,33 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                                             <Loader2 className="h-3 w-3 animate-spin" />
                                             Loading map data...
                                         </span>
+                                    ) : isMapMoving ? (
+                                        <span className="flex items-center gap-1 text-orange-600">
+                                            <MapPin className="h-3 w-3" />
+                                            Map is moving... table will update in 2 seconds
+                                        </span>
                                     ) : (
-                                        `Showing ${currentMapData.length} canceled subscriptions`
+                                        `Showing ${currentMapData.length} of ${allMapData.length} canceled subscriptions`
                                     )}
                                 </CardDescription>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Badge variant="outline">{currentMapData.length} markers</Badge>
+                                <Badge variant="outline">{totalDataInDB || allMapData.length} total in DB</Badge>
+                                <Badge variant="secondary">{allMapData.length} cached</Badge>
+                                <Badge variant="default">{currentMapData.length} visible</Badge>
+                                {useClusterMode && <Badge variant="destructive">Clustered</Badge>}
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="relative">
-                        <div ref={mapRef} className="h-[600px] rounded-lg border" style={{ minHeight: '600px' }} />
+                        <div
+                            ref={mapRef}
+                            className="h-[800px] rounded-lg border"
+                            style={{
+                                minHeight: '800px',
+                                touchAction: 'none', // Prevent touch gestures from affecting page scroll
+                            }}
+                        />
                         {loading && (
                             <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-white/50">
                                 <div className="flex items-center gap-2 rounded-lg bg-white p-4 shadow-lg">

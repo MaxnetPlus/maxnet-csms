@@ -68,6 +68,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::middleware('can:view-reports')->prefix('cancel-subscription')->name('cancel-subscription.')->group(function () {
         Route::get('/', [CancelSubscriptionController::class, 'index'])->name('index');
         Route::get('/map-data', [CancelSubscriptionController::class, 'mapData'])->name('map-data');
+        Route::get('/clustered-map-data', [CancelSubscriptionController::class, 'clusteredMapData'])->name('clustered-map-data');
         Route::post('/table-data', [CancelSubscriptionController::class, 'tableData'])->name('table-data');
         Route::get('/clustered-data', [CancelSubscriptionController::class, 'clusteredData'])->name('clustered-data');
         Route::get('/export', [CancelSubscriptionController::class, 'export'])->name('export');

@@ -20,6 +20,7 @@ interface MapDataPoint {
     lng: number | null;
     coordinates: string;
     created_at: string;
+    updated_at: string;
     dismantle_at: string | null;
 }
 
@@ -206,13 +207,22 @@ export default function CancelList({ initialSearch = '', mapBounds, onLocationCl
                 </div>
             ),
         },
+        // {
+        //     header: 'Date',
+        //     className: 'min-w-[160px]',
+        //     render: (data: MapDataPoint) => (
+        //         <div>
+        //             <p className="text-sm">Created: {data.created_at}</p>
+        //             {data.dismantle_at && <p className="text-sm text-red-600">Dismantled: {data.dismantle_at}</p>}
+        //         </div>
+        //     ),
+        // },
         {
-            header: 'Date',
+            header: 'Updated At',
             className: 'min-w-[160px]',
             render: (data: MapDataPoint) => (
                 <div>
-                    <p className="text-sm">Created: {data.created_at}</p>
-                    {data.dismantle_at && <p className="text-sm text-red-600">Dismantled: {data.dismantle_at}</p>}
+                    <p className="text-sm">Updated At: {data.updated_at}</p>
                 </div>
             ),
         },

@@ -148,6 +148,8 @@ class CancelSubscriptionController extends Controller
     public function mapData(Request $request)
     {
         $bounds = $request->input('bounds');
+        $all = $request->input('all', false); // Flag untuk mengambil semua data
+        $limit = $request->input('limit', 1000); // Default limit yang lebih tinggi
 
         // Base query with only necessary fields for performance
         $query = Subscription::select([
@@ -168,17 +170,35 @@ class CancelSubscriptionController extends Controller
                     ->orWhere('customer_id', 'like', "%{$search}%")
                     ->orWhere('customer_email', 'like', "%{$search}%")
                     ->orWhere('customer_phone', 'like', "%{$search}%");
-            });
+            })
+                ->orWhere('subscription_id', 'like', "%{$search}%")
+                ->orWhere('serv_id', 'like', "%{$search}%")
+                ->orWhere('subscription_description', 'like', "%{$search}%");
         }
 
-        // If bounds provided, add geographical filtering at database level
+        // Apply geographical filtering with database optimization
         if ($bounds && $this->isValidBounds($bounds)) {
-            // Reduced limit for better performance with bounds
-            $query->limit(300);
-        } else {
-            // Even smaller default limit for initial load
-            $query->limit(150);
+            // Add raw SQL for better performance on coordinate filtering
+            $query->whereRaw("
+                CASE 
+                    WHEN subscription_maps REGEXP '^-?[0-9]+\.?[0-9]*,-?[0-9]+\.?[0-9]*$' THEN
+                        CAST(SUBSTRING_INDEX(subscription_maps, ',', 1) AS DECIMAL(10,8)) BETWEEN ? AND ?
+                        AND CAST(SUBSTRING_INDEX(subscription_maps, ',', -1) AS DECIMAL(11,8)) BETWEEN ? AND ?
+                    ELSE FALSE
+                END
+            ", [
+                $bounds['south'], $bounds['north'],
+                $bounds['west'], $bounds['east']
+            ]);
         }
+
+        // Apply limit based on request
+        if ($all !== 'true') {
+            $query->limit((int) $limit);
+        }
+
+        // Add ordering for consistent results
+        $query->orderBy('created_at', 'desc');
 
         $subscriptions = $query->get();
         $mapData = [];
@@ -186,19 +206,6 @@ class CancelSubscriptionController extends Controller
         foreach ($subscriptions as $subscription) {
             $coords = $this->parseCoordinates($subscription->subscription_maps);
             if ($coords && $subscription->customer) {
-                // Filter by bounds if provided
-                if ($bounds && $this->isValidBounds($bounds)) {
-                    $lat = $coords['lat'];
-                    $lng = $coords['lng'];
-
-                    if (
-                        $lat < $bounds['south'] || $lat > $bounds['north'] ||
-                        $lng < $bounds['west'] || $lng > $bounds['east']
-                    ) {
-                        continue;
-                    }
-                }
-
                 $mapData[] = [
                     'id' => $subscription->subscription_id,
                     'customer_id' => $subscription->customer->customer_id,
@@ -216,18 +223,15 @@ class CancelSubscriptionController extends Controller
                     'created_at' => $subscription->created_at ? $subscription->created_at->format('Y-m-d H:i') : null,
                     'dismantle_at' => $subscription->dismantle_at ? $subscription->dismantle_at->format('Y-m-d H:i') : null,
                 ];
-
-                // Limit response size for performance
-                // if (count($mapData) >= 100) {
-                //     break;
-                // }
             }
         }
 
         return response()->json([
             'data' => $mapData,
             'count' => count($mapData),
-            'limited' => count($mapData) >= 100
+            'total_in_db' => $this->getTotalCanceledWithCoordinates(),
+            'limited' => $all !== 'true' && count($mapData) >= $limit,
+            'bounds_applied' => $bounds && $this->isValidBounds($bounds)
         ]);
     }
 
@@ -243,10 +247,11 @@ class CancelSubscriptionController extends Controller
         $query = Subscription::select([
             'subscription_id', 'customer_id', 'subscription_maps',
             'subscription_address', 'subscription_description', 'subscription_status',
-            'serv_id', 'created_at', 'dismantle_at'
+            'serv_id', 'created_at', 'dismantle_at', 'updated_at'
         ])
             ->with(['customer:customer_id,customer_name,customer_phone,customer_email'])
-            ->where('subscription_status', 'CANCELED');
+            ->where('subscription_status', 'CANCELED')
+            ->orderBy('updated_at', 'desc');
 
         // Apply search filter
         if (!empty($search)) {
@@ -289,6 +294,7 @@ class CancelSubscriptionController extends Controller
         $formattedData = $paginated->through(function ($subscription) {
             $coords = $this->parseCoordinates($subscription->subscription_maps ?? '');
 
+
             return [
                 'id' => $subscription->subscription_id,
                 'customer_id' => $subscription->customer ? $subscription->customer->customer_id : 'N/A',
@@ -304,9 +310,12 @@ class CancelSubscriptionController extends Controller
                 'lat' => $coords ? $coords['lat'] : null,
                 'lng' => $coords ? $coords['lng'] : null,
                 'created_at' => $subscription->created_at ? $subscription->created_at->format('Y-m-d H:i') : null,
+                'updated_at' => $subscription->updated_at ? $subscription->updated_at->format('Y-m-d H:i') : null,
                 'dismantle_at' => $subscription->dismantle_at ? $subscription->dismantle_at->format('Y-m-d H:i') : null,
             ];
         });
+
+        // dd($formattedData);
 
         return response()->json($formattedData);
     }
@@ -413,6 +422,101 @@ class CancelSubscriptionController extends Controller
             'data' => array_values($clusters),
             'zoom' => $zoom,
             'cluster_size' => $clusterSize
+        ]);
+    }
+
+    /**
+     * Get optimized clustered map data for better performance with thousands of records
+     */
+    public function clusteredMapData(Request $request)
+    {
+        $bounds = $request->input('bounds');
+        $zoom = $request->input('zoom', 10);
+        $search = $request->input('search');
+
+        // Determine cluster precision based on zoom level
+        $precision = $this->getClusterPrecision($zoom);
+
+        $query = Subscription::select([
+            'subscription_id', 'customer_id', 'subscription_maps',
+            'subscription_address', 'subscription_description', 'serv_id'
+        ])
+            ->with(['customer:customer_id,customer_name,customer_phone,customer_email'])
+            ->where('subscription_status', 'CANCELED')
+            ->where('subscription_maps', '!=', '-')
+            ->whereNotNull('subscription_maps')
+            ->where('subscription_maps', '!=', '');
+
+        // Apply search filter
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('customer', function ($customerQuery) use ($search) {
+                    $customerQuery->where('customer_name', 'like', "%{$search}%")
+                        ->orWhere('customer_id', 'like', "%{$search}%")
+                        ->orWhere('customer_email', 'like', "%{$search}%")
+                        ->orWhere('customer_phone', 'like', "%{$search}%");
+                })
+                    ->orWhere('subscription_id', 'like', "%{$search}%")
+                    ->orWhere('serv_id', 'like', "%{$search}%");
+            });
+        }
+
+        // Apply geographical filtering at database level
+        if ($bounds && $this->isValidBounds($bounds)) {
+            $query->whereRaw("
+                CASE 
+                    WHEN subscription_maps REGEXP '^-?[0-9]+\.?[0-9]*,-?[0-9]+\.?[0-9]*$' THEN
+                        CAST(SUBSTRING_INDEX(subscription_maps, ',', 1) AS DECIMAL(10,8)) BETWEEN ? AND ?
+                        AND CAST(SUBSTRING_INDEX(subscription_maps, ',', -1) AS DECIMAL(11,8)) BETWEEN ? AND ?
+                    ELSE FALSE
+                END
+            ", [
+                $bounds['south'], $bounds['north'],
+                $bounds['west'], $bounds['east']
+            ]);
+        }
+
+        $subscriptions = $query->get();
+        $clusters = [];
+
+        foreach ($subscriptions as $subscription) {
+            $coords = $this->parseCoordinates($subscription->subscription_maps);
+            if ($coords && $subscription->customer) {
+                // Create cluster key based on precision
+                $clusterLat = round($coords['lat'] * $precision) / $precision;
+                $clusterLng = round($coords['lng'] * $precision) / $precision;
+                $clusterKey = $clusterLat . ',' . $clusterLng;
+
+                if (!isset($clusters[$clusterKey])) {
+                    $clusters[$clusterKey] = [
+                        'id' => $clusterKey,
+                        'lat' => $clusterLat,
+                        'lng' => $clusterLng,
+                        'count' => 0,
+                        'items' => []
+                    ];
+                }
+
+                $clusters[$clusterKey]['count']++;
+
+                // Store only sample items to avoid memory issues
+                if (count($clusters[$clusterKey]['items'] ?? []) < 5) {
+                    $clusters[$clusterKey]['items'][] = [
+                        'id' => $subscription->subscription_id,
+                        'customer_name' => $subscription->customer->customer_name,
+                        'serv_id' => $subscription->serv_id,
+                        'address' => $subscription->subscription_address
+                    ];
+                }
+            }
+        }
+
+        return response()->json([
+            'clusters' => array_values($clusters),
+            'total_points' => count($subscriptions),
+            'cluster_count' => count($clusters),
+            'zoom' => $zoom,
+            'precision' => $precision
         ]);
     }
 
@@ -564,5 +668,31 @@ class CancelSubscriptionController extends Controller
             'lat' => $latitude,
             'lng' => $longitude,
         ];
+    }
+
+    /**
+     * Get total count of canceled subscriptions with coordinates
+     */
+    private function getTotalCanceledWithCoordinates(): int
+    {
+        return Subscription::where('subscription_status', 'CANCELED')
+            ->where('subscription_maps', '!=', '-')
+            ->whereNotNull('subscription_maps')
+            ->where('subscription_maps', '!=', '')
+            ->count();
+    }
+
+    /**
+     * Get cluster precision based on zoom level
+     */
+    private function getClusterPrecision(int $zoom): int
+    {
+        // Higher zoom = higher precision (smaller clusters)
+        if ($zoom >= 16) return 10000;   // Very detailed
+        if ($zoom >= 14) return 1000;    // Detailed
+        if ($zoom >= 12) return 100;     // Medium
+        if ($zoom >= 10) return 10;      // Coarse
+        if ($zoom >= 8) return 1;        // Very coarse
+        return 0.1;                      // Extremely coarse
     }
 }
