@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem, Invitation, PaginatedData, Role, User } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Eye, History, Mail, Pencil, Plus, RefreshCcw, Search, Trash2, X } from 'lucide-react';
+import { Eye, History, Mail, Pencil, Plus, RefreshCcw, Search, Trash2, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 
 interface Props {
@@ -145,6 +145,12 @@ export default function UsersIndex({ users, invitations, roles, filters }: Props
                                 <Link href="/admin/users/invite">
                                     <Mail className="mr-2 h-4 w-4" />
                                     Invite User
+                                </Link>
+                            </Button>
+                            <Button asChild variant="outline">
+                                <Link href="/admin/users/sso-pending">
+                                    <UserPlus className="mr-2 h-4 w-4" />
+                                    Pending SSO Users
                                 </Link>
                             </Button>
                             <Button asChild>

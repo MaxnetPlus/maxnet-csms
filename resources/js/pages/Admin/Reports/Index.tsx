@@ -102,16 +102,18 @@ export default function ReportsIndex({ stats, recentImports, subscriptionsByStat
                         <h1 className="text-3xl font-bold">Reports</h1>
                         <p className="text-muted-foreground">Analytics and insights for your business</p>
                     </div>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => handleExport('customers')}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Export Customers
-                        </Button>
-                        <Button variant="outline" onClick={() => handleExport('subscriptions')}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Export Subscriptions
-                        </Button>
-                    </div>
+                    {userPermissions.includes('export-data') && (
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => handleExport('customers')}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export Customers
+                            </Button>
+                            <Button variant="outline" onClick={() => handleExport('subscriptions')}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Export Subscriptions
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Statistics Cards */}
@@ -259,12 +261,14 @@ export default function ReportsIndex({ stats, recentImports, subscriptionsByStat
                     </CardHeader>
                     <CardContent>
                         <div className="flex flex-wrap gap-4">
-                            <Button asChild variant="outline">
-                                <Link href="/admin/database-import">
-                                    <Database className="mr-2 h-4 w-4" />
-                                    Import Data
-                                </Link>
-                            </Button>
+                            {userPermissions.includes('export-data') && (
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/database-import">
+                                        <Database className="mr-2 h-4 w-4" />
+                                        Import Data
+                                    </Link>
+                                </Button>
+                            )}
                             {userPermissions.includes('manage-users') && (
                                 <Button asChild variant="outline">
                                     <Link href="/admin/users">

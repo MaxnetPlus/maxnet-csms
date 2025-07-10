@@ -348,4 +348,50 @@ class UserController extends Controller
         return redirect()->route('admin.users.invitation-history')
             ->with('success', $invitations->count() . ' invitations resent successfully.');
     }
+
+    public function pendingSSOUsers(Request $request): Response
+    {
+        $pendingUsers = User::with(['roles', 'permissions'])
+            ->where('is_sso_user', true)
+            ->where('is_approved', false)
+            ->when($request->search, function ($query, $search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+
+        return Inertia::render('Admin/Users/PendingSSOUsers', [
+            'pendingUsers' => $pendingUsers,
+            'filters' => $request->only(['search']),
+        ]);
+    }
+
+    public function approveSSOUser(User $user): \Illuminate\Http\RedirectResponse
+    {
+        if (!$user->is_sso_user) {
+            return redirect()->back()->with('error', 'This user is not an SSO user.');
+        }
+
+        $user->update([
+            'is_approved' => true,
+        ]);
+
+        return redirect()->back()->with('success', 'SSO user has been approved.');
+    }
+
+    public function rejectSSOUser(User $user): \Illuminate\Http\RedirectResponse
+    {
+        if (!$user->is_sso_user) {
+            return redirect()->back()->with('error', 'This user is not an SSO user.');
+        }
+
+        $user->delete();
+
+        return redirect()->back()->with('success', 'SSO user has been rejected and removed.');
+    }
 }
