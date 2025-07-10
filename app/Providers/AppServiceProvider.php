@@ -26,14 +26,6 @@ class AppServiceProvider extends ServiceProvider
         // Set default string length for older MySQL versions
         Schema::defaultStringLength(191);
 
-        // Only force HTTPS URLs if we detect the request is already secure
-        if (config('app.env') === 'production' && (
-            (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
-            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
-        )) {
-            URL::forceScheme('https');
-        }
-
         $this->registerAuthProvider();
     }
 
