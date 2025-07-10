@@ -30,12 +30,20 @@ export default function Login({ status, canResetPassword = true }: LoginProps) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
+
+        console.log('Login route:', route('login'));
+        console.log('Form data:', data);
+
         post(route('login'), {
             onFinish: () => reset('password'),
+            onError: (errors) => {
+                console.error('Login errors:', errors);
+            },
+            onSuccess: () => {
+                console.log('Login successful');
+            },
         });
     };
-
-    console.log('canResetPassword:', canResetPassword);
 
     return (
         <AuthLayout title="" description="Enter your username/email and password below to log in">
@@ -102,6 +110,13 @@ export default function Login({ status, canResetPassword = true }: LoginProps) {
                     {(errors as any).throttle && (
                         <div className="rounded-md bg-red-50 p-3 text-center">
                             <div className="text-sm text-red-800">{(errors as any).throttle}</div>
+                        </div>
+                    )}
+
+                    {/* General error handler for network issues */}
+                    {Object.keys(errors).length > 0 && !errors.login && !errors.password && !(errors as any).throttle && (
+                        <div className="rounded-md bg-red-50 p-3 text-center">
+                            <div className="text-sm text-red-800">Network error. Please check your connection and try again.</div>
                         </div>
                     )}
                 </div>
