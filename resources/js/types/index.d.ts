@@ -46,6 +46,14 @@ export interface User {
     updated_at: string;
     roles?: Role[];
     permissions?: Permission[];
+    sso_id?: string;
+    photo_profile?: string;
+    phone_number?: string;
+    is_sso_user?: boolean;
+    is_approved?: boolean;
+    address?: string;
+    department?: string;
+    last_login?: string;
     [key: string]: unknown; // This allows for additional properties...
 }
 

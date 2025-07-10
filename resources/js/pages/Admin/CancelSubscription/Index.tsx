@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import AppLayout from '@/layouts/app-layout';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Download, Loader2, MapPin, Search, TrendingDown, Users } from 'lucide-react';
@@ -66,7 +66,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
     const mapRef = useRef<HTMLDivElement>(null);
     const leafletMapRef = useRef<L.Map | null>(null);
     const markersRef = useRef<L.LayerGroup | null>(null);
-
+    const { auth } = usePage().props as any;
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState(filters.search || '');
     const [currentMapData, setCurrentMapData] = useState<MapDataPoint[]>(mapData);
@@ -77,7 +77,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
     const [useClusterMode, setUseClusterMode] = useState(false); // Mode clustering untuk performa
     const [currentZoom, setCurrentZoom] = useState(5); // Track zoom level
     const [totalDataInDB, setTotalDataInDB] = useState(0); // Total data di database
-
+    const userPermissions = auth?.user?.permissions || [];
     // Debounce utility function
     const debounce = (func: Function, delay: number) => {
         let timeoutId: NodeJS.Timeout;
@@ -478,10 +478,12 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                         <h1 className="text-3xl font-bold tracking-tight">Cancel Subscription</h1>
                         <p className="text-muted-foreground">View and manage canceled subscriptions with location mapping</p>
                     </div>
-                    <Button onClick={handleExport} variant="outline">
-                        <Download className="mr-2 h-4 w-4" />
-                        Export Data
-                    </Button>
+                    {userPermissions.includes('export-data') && (
+                        <Button onClick={handleExport} variant="outline">
+                            <Download className="mr-2 h-4 w-4" />
+                            Export Data
+                        </Button>
+                    )}
                 </div>
 
                 {/* Stats Cards */}

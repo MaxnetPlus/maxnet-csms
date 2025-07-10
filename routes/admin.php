@@ -27,6 +27,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('users/invitations/bulk-resend', [UserController::class, 'bulkResendInvitations'])->name('users.invitations.bulk-resend');
         Route::post('users', [UserController::class, 'store'])->name('users.store');
 
+        // SSO users approval routes
+        Route::get('users/sso-pending', [UserController::class, 'pendingSSOUsers'])->name('users.sso-pending');
+        Route::post('users/{user}/approve', [UserController::class, 'approveSSOUser'])->name('users.approve-sso');
+        Route::post('users/{user}/reject', [UserController::class, 'rejectSSOUser'])->name('users.reject-sso');
+
         // These routes should come after the create route
         Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
         Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');

@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\EmailVerificationPromptController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\SSOAuthController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,8 +20,16 @@ Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
+
     Route::post('login', [AuthenticatedSessionController::class, 'store'])
         ->middleware('throttle:3,1');
+
+    Route::post('sso-login', [SSOAuthController::class, 'authenticate'])
+        ->middleware('throttle:3,1')
+        ->name('sso.login');
+
+    Route::get('pending-approval', [SSOAuthController::class, 'pendingApproval'])
+        ->name('auth.pending-approval');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
