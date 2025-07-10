@@ -6,6 +6,7 @@ use App\Extensions\UsernameOrEmailUserProvider;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Request;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,13 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Force HTTPS in production
-        if (config('app.env') === 'production') {
-            URL::forceScheme('https');
-        }
-
-        // Force HTTPS if behind proxy (common in shared hosting)
-        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+        // Only force HTTPS if we're sure we're behind HTTPS
+        // Let the server/proxy handle the HTTPS redirection
+        if (config('app.env') === 'production' && config('app.url') && str_starts_with(config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
 

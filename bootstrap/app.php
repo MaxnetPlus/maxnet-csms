@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
         // Trust proxies for proper HTTPS detection in shared hosting
-        $middleware->trustProxies(at: [
+        $middleware->use([
             TrustProxies::class,
         ]);
 
