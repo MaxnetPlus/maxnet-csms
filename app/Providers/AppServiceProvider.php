@@ -6,6 +6,7 @@ use App\Extensions\UsernameOrEmailUserProvider;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Schema;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,8 +23,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Force HTTPS in production
-        if (config('app.env') === 'production') {
+        // Set default string length for older MySQL versions
+        Schema::defaultStringLength(191);
+
+        // Only force HTTPS URLs if we detect the request is already secure
+        if (config('app.env') === 'production' && (
+            (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+            (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+        )) {
             URL::forceScheme('https');
         }
 
