@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Admin\DismantleSubscriptionController;
+use App\Http\Controllers\Admin\SuspendSubscriptionController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\DatabaseImportController;
@@ -77,5 +79,23 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('/table-data', [CancelSubscriptionController::class, 'tableData'])->name('table-data');
         Route::get('/clustered-data', [CancelSubscriptionController::class, 'clusteredData'])->name('clustered-data');
         Route::get('/export', [CancelSubscriptionController::class, 'export'])->name('export');
+    });
+
+
+    Route::middleware('can:view-reports')->prefix('dismantle-subscription')->name('dismantle-subscription.')->group(function () {
+        Route::get('/', [DismantleSubscriptionController::class, 'index'])->name('index');
+        Route::get('/map-data', [DismantleSubscriptionController::class, 'mapData'])->name('map-data');
+        Route::get('/clustered-map-data', [DismantleSubscriptionController::class, 'clusteredMapData'])->name('clustered-map-data');
+        Route::post('/table-data', [DismantleSubscriptionController::class, 'tableData'])->name('table-data');
+        Route::get('/clustered-data', [DismantleSubscriptionController::class, 'clusteredData'])->name('clustered-data');
+        Route::get('/export', [DismantleSubscriptionController::class, 'export'])->name('export');
+    });
+    Route::middleware('can:view-reports')->prefix('suspend-subscription')->name('suspend-subscription.')->group(function () {
+        Route::get('/', [SuspendSubscriptionController::class, 'index'])->name('index');
+        Route::get('/map-data', [SuspendSubscriptionController::class, 'mapData'])->name('map-data');
+        Route::get('/clustered-map-data', [SuspendSubscriptionController::class, 'clusteredMapData'])->name('clustered-map-data');
+        Route::post('/table-data', [SuspendSubscriptionController::class, 'tableData'])->name('table-data');
+        Route::get('/clustered-data', [SuspendSubscriptionController::class, 'clusteredData'])->name('clustered-data');
+        Route::get('/export', [SuspendSubscriptionController::class, 'export'])->name('export');
     });
 });

@@ -4,7 +4,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookX, Database, FileText, Shield, Users } from 'lucide-react';
+import { BookX, CaptionsOff, Database, FileText, Pickaxe, Shield, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -46,6 +46,18 @@ export function AppSidebar() {
             title: 'Cancel Subscription',
             href: '/admin/cancel-subscription',
             icon: BookX,
+            permission: 'view-reports',
+        },
+        {
+            title: 'Dismantle Subscription',
+            href: '/admin/dismantle-subscription',
+            icon: Pickaxe,
+            permission: 'view-reports',
+        },
+        {
+            title: 'Suspend Subscription',
+            href: '/admin/suspend-subscription',
+            icon: CaptionsOff,
             permission: 'view-reports',
         },
     ];

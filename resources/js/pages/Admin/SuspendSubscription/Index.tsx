@@ -8,7 +8,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Download, Loader2, MapPin, Search, TrendingDown, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import CancelList from './CancelList';
+import SuspendList from './SuspendList';
 
 // Fix for default markers in leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -33,11 +33,11 @@ interface MapDataPoint {
     lng: number | null;
     coordinates: string;
     created_at: string;
-    dismantle_at: string | null;
+    suspend_at: string | null;
 }
 
 interface Stats {
-    total_canceled: number;
+    total_suspended: number;
     with_coordinates: number;
     without_coordinates: number;
 }
@@ -58,7 +58,7 @@ interface Props {
     };
 }
 
-export default function CancelSubscriptionIndex({ customers, mapData, stats, filters }: Props) {
+export default function SuspendSubscriptionIndex({ customers, mapData, stats, filters }: Props) {
     // Debug log untuk melihat data awal
     console.log('Initial mapData from props:', mapData.length);
     console.log('Stats from props:', stats);
@@ -204,7 +204,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                         params.append('bounds[west]', mapBounds.west.toString());
                     }
 
-                    const response = await fetch(`/admin/cancel-subscription/clustered-map-data?${params}`);
+                    const response = await fetch(`/admin/suspend-subscription/clustered-map-data?${params}`);
                     const data = await response.json();
 
                     console.log('Using clustered data:', data.cluster_count, 'clusters for', data.total_points, 'points');
@@ -222,13 +222,13 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                                 subscription_id: item.id,
                                 subscription_address: item.address,
                                 subscription_description: '',
-                                subscription_status: 'CANCELED',
+                                subscription_status: 'SUSPEND',
                                 serv_id: item.serv_id,
                                 lat: cluster.lat,
                                 lng: cluster.lng,
                                 coordinates: `${cluster.lat},${cluster.lng}`,
                                 created_at: '',
-                                dismantle_at: null,
+                                suspend_at: null,
                             });
                         });
                     });
@@ -244,7 +244,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
 
                     console.log('Loading all map data with params:', params.toString());
 
-                    const response = await fetch(`/admin/cancel-subscription/map-data?${params}`);
+                    const response = await fetch(`/admin/suspend-subscription/map-data?${params}`);
                     const data = await response.json();
 
                     console.log('Received data:', data);
@@ -363,7 +363,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                                 <p class="text-xs text-gray-600 mb-1"><strong>Alasan : </strong>${point.subscription_description || 'No description'}</p>
                                 <p class="text-xs"><strong>Service ID:</strong> ${point.serv_id}</p>
                                 <p class="text-xs"><strong>Address:</strong> ${point.subscription_address}</p>
-                                <p class="text-xs"><strong>Dismantled:</strong> ${point.dismantle_at || 'N/A'}</p>
+                                <p class="text-xs"><strong>Suspend:</strong> ${point.suspend_at || 'N/A'}</p>
                             </div>
                         `,
                                 {
@@ -452,12 +452,12 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
             }
             params.append('format', 'csv');
 
-            const response = await fetch(`/admin/cancel-subscription/export?${params}`);
+            const response = await fetch(`/admin/suspend-subscription/export?${params}`);
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `canceled_subscriptions_${new Date().toISOString().split('T')[0]}.csv`;
+            a.download = `suspended_subscriptions_${new Date().toISOString().split('T')[0]}.csv`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
@@ -469,14 +469,14 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
 
     return (
         <AppLayout>
-            <Head title="Cancel Subscription" />
+            <Head title="Suspend Subscription" />
 
             <div className="space-y-6">
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Cancel Subscription</h1>
-                        <p className="text-muted-foreground">View and manage canceled subscriptions with location mapping</p>
+                        <h1 className="text-3xl font-bold tracking-tight">Suspend Subscription</h1>
+                        <p className="text-muted-foreground">View and manage suspend subscriptions with location mapping</p>
                     </div>
                     {userPermissions.includes('export-data') && (
                         <Button onClick={handleExport} variant="outline">
@@ -490,12 +490,12 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                 <div className="grid gap-4 md:grid-cols-3">
                     <Card>
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium">Total Canceled</CardTitle>
+                            <CardTitle className="text-sm font-medium">Total suspended</CardTitle>
                             <TrendingDown className="h-4 w-4 text-muted-foreground" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{stats.total_canceled.toLocaleString()}</div>
-                            <p className="text-xs text-muted-foreground">All canceled subscriptions</p>
+                            <div className="text-2xl font-bold">{stats.total_suspended.toLocaleString()}</div>
+                            <p className="text-xs text-muted-foreground">All suspended subscriptions</p>
                         </CardContent>
                     </Card>
                     <Card>
@@ -523,7 +523,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                 {/* Search */}
                 <Card>
                     <CardHeader>
-                        <CardTitle>Search Canceled Subscriptions</CardTitle>
+                        <CardTitle>Search suspended Subscriptions</CardTitle>
                         <CardDescription>Search by customer name, phone, email, subscription ID, or service ID</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -579,7 +579,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                                         <strong>Email:</strong> {selectedMarker.customer_email}
                                     </p>
                                     <p>
-                                        <strong>Status :</strong> <Badge variant="destructive">{selectedMarker.subscription_status}</Badge>
+                                        <strong>Status :</strong> <Badge variant="warning">{selectedMarker.subscription_status}</Badge>
                                     </p>
                                 </div>
                                 <div>
@@ -597,7 +597,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                                         <strong>Coordinates:</strong> {selectedMarker.coordinates}
                                     </p>
                                     <p>
-                                        <strong>Dismantled:</strong> {selectedMarker.dismantle_at || 'N/A'}
+                                        <strong>Suspended:</strong> {selectedMarker.suspend_at || 'N/A'}
                                     </p>
                                 </div>
                             </div>
@@ -627,7 +627,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
                                             Map is moving... table will update in 2 seconds
                                         </span>
                                     ) : (
-                                        `Showing ${currentMapData.length} of ${allMapData.length} canceled subscriptions`
+                                        `Showing ${currentMapData.length} of ${allMapData.length} suspended subscriptions`
                                     )}
                                 </CardDescription>
                             </div>
@@ -661,7 +661,7 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
 
                 {/* Table */}
 
-                <CancelList initialSearch={search} mapBounds={mapBounds} onLocationClick={handleLocationClick} />
+                <SuspendList initialSearch={search} mapBounds={mapBounds} onLocationClick={handleLocationClick} />
 
                 {/* Selected Marker Details */}
             </div>
