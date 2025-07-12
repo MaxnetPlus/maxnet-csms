@@ -4,7 +4,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { BookX, CaptionsOff, Database, FileText, Pickaxe, Shield, Users } from 'lucide-react';
+import { BookX, CaptionsOff, Database, FileText, List, Pickaxe, Shield, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function AppSidebar() {
@@ -22,6 +22,12 @@ export function AppSidebar() {
             title: 'Dashboard',
             href: '/admin/reports',
             icon: FileText,
+            permission: 'view-reports',
+        },
+        {
+            title: 'Subscriptions',
+            href: '/admin/subscriptions',
+            icon: List,
             permission: 'view-reports',
         },
         {

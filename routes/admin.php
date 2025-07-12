@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\DatabaseImportController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CancelSubscriptionController;
+use App\Http\Controllers\Admin\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 // Admin routes with authentication and permission middleware
@@ -69,6 +70,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::middleware('can:view-reports')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+    });
+
+    // Subscription Management routes
+    Route::middleware('can:view-reports')->prefix('subscriptions')->name('subscriptions.')->group(function () {
+        Route::get('/', [SubscriptionController::class, 'index'])->name('index');
+        Route::get('/export', [SubscriptionController::class, 'export'])->name('export');
+        Route::post('/table-data', [SubscriptionController::class, 'tableData'])->name('table-data');
+        Route::get('/{subscription}', [SubscriptionController::class, 'show'])->name('show');
     });
 
     // Cancel Subscription routes
