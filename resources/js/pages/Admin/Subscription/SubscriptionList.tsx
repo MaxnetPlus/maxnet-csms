@@ -1,11 +1,14 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Eye, Filter, Loader2, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, Filter, Loader2, Plus, Search, X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
 interface Customer {
@@ -13,6 +16,12 @@ interface Customer {
     customer_name: string;
     customer_email: string;
     customer_phone: string;
+}
+
+interface FollowUp {
+    id: number;
+    priority: string;
+    status: string;
 }
 
 interface Subscription {
@@ -30,6 +39,8 @@ interface Subscription {
     dismantle_at?: string;
     suspend_at?: string;
     customer?: Customer;
+    active_follow_ups?: FollowUp[];
+    has_active_follow_ups?: boolean;
 }
 
 interface TableColumn {
@@ -74,8 +85,8 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
     const [loading, setLoading] = useState(false);
     const [filters, setFilters] = useState({
         search: initialFilters.search || '',
-        status: initialFilters.status || '',
-        group: initialFilters.group || '',
+        status: initialFilters.status || 'all',
+        group: initialFilters.group || 'all',
         date_from: initialFilters.date_from || '',
         date_to: initialFilters.date_to || '',
         sort: initialFilters.sort || 'created_at',
@@ -85,6 +96,16 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
     const [perPage, setPerPage] = useState(15);
     const [showFilters, setShowFilters] = useState(false);
     const [lastFetchParams, setLastFetchParams] = useState<string>('');
+
+    // Follow up modal states
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+    const [selectedSubscription, setSelectedSubscription] = useState<Subscription | null>(null);
+    const [followUpForm, setFollowUpForm] = useState({
+        priority: 'medium',
+        description: '',
+        notes: '',
+    });
+    const [submittingFollowUp, setSubmittingFollowUp] = useState(false);
 
     // Debounced search function
     const debounce = (func: Function, delay: number) => {
@@ -98,115 +119,94 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
     const fetchTableData = useCallback(
         async (page = 1, currentFilters = filters, force = false) => {
             // Create a unique key for this request to prevent duplicate fetches
-            const requestKey = JSON.stringify({ page, currentFilters, perPage });
+            const requestData = {
+                page: page,
+                per_page: perPage,
+                ...currentFilters,
+            };
 
-            // Skip if we just made the same request (unless forced)
-            if (!force && requestKey === lastFetchParams) {
+            const fetchKey = JSON.stringify(requestData);
+
+            // Skip if same request was just made (unless forced)
+            if (!force && fetchKey === lastFetchParams) {
                 return;
             }
 
             setLoading(true);
+            setLastFetchParams(fetchKey);
+
             try {
-                const response = await fetch('/admin/subscriptions/table-data', {
+                const response = await fetch(`/admin/subscriptions/table-data`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                     },
-                    body: JSON.stringify({
-                        page,
-                        per_page: perPage,
-                        ...currentFilters,
-                    }),
+                    body: JSON.stringify(requestData),
                 });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setTableData(data);
-                    setLastFetchParams(requestKey);
-
-                    // Update current page to match the response
-                    if (data.current_page !== currentPage) {
-                        setCurrentPage(data.current_page);
-                    }
-                }
+                const data = await response.json();
+                setTableData(data);
+                setCurrentPage(data.current_page);
             } catch (error) {
-                console.error('Error fetching table data:', error);
+                console.error('Failed to fetch data:', error);
             } finally {
                 setLoading(false);
             }
         },
-        [perPage, lastFetchParams, currentPage], // Added currentPage to dependencies
+        [perPage, lastFetchParams, currentPage],
     );
 
     const debouncedFetchTableData = useCallback(
         debounce((page: number, currentFilters: any) => {
             fetchTableData(page, currentFilters, true);
         }, 300),
-        [], // Remove dependency to prevent recreating debounced function
+        [],
     );
 
     // Effect for initial load only
     useEffect(() => {
         fetchTableData(1, filters, true);
-        setCurrentPage(1);
     }, []); // Only run on mount
 
     // Effect for per page changes - reset to page 1
     useEffect(() => {
         if (tableData) {
-            // Only run if we already have data (not on initial load)
             fetchTableData(1, filters, true);
-            setCurrentPage(1);
         }
     }, [perPage]);
 
     // Effect for filter changes - reset to page 1
     useEffect(() => {
-        // Only trigger if filters actually changed from initial values
-        const filtersChanged =
-            filters.search !== initialFilters.search ||
-            filters.status !== initialFilters.status ||
-            filters.group !== initialFilters.group ||
-            filters.date_from !== initialFilters.date_from ||
-            filters.date_to !== initialFilters.date_to ||
-            filters.sort !== initialFilters.sort ||
-            filters.direction !== initialFilters.direction;
-
-        if (filtersChanged && tableData) {
-            // Only run if we already have data
+        if (tableData) {
             debouncedFetchTableData(1, filters);
-            setCurrentPage(1);
         }
     }, [filters]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        // Force immediate search without debounce
-        fetchTableData(1, filters, true);
-        setCurrentPage(1);
+        // The effect will handle the actual search
     };
 
     const handlePageChange = (newPage: number) => {
-        if (newPage >= 1 && newPage <= (tableData?.last_page || 1) && newPage !== currentPage) {
-            setCurrentPage(newPage);
-            fetchTableData(newPage, filters, true); // Use newPage, not currentPage
+        if (newPage >= 1 && newPage <= (tableData?.last_page || 1)) {
+            fetchTableData(newPage, filters, true);
         }
     };
 
     const handleSort = (field: string) => {
         const newDirection = filters.sort === field && filters.direction === 'asc' ? 'desc' : 'asc';
-        const newFilters = { ...filters, sort: field, direction: newDirection };
-        setFilters(newFilters);
-        // Don't call fetchTableData here, let useEffect handle it
-        setCurrentPage(1);
+        setFilters((prev) => ({
+            ...prev,
+            sort: field,
+            direction: newDirection,
+        }));
     };
 
     const clearFilters = () => {
         const clearedFilters = {
             search: '',
-            status: '',
-            group: '',
+            status: 'all',
+            group: 'all',
             date_from: '',
             date_to: '',
             sort: 'created_at',
@@ -215,6 +215,61 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
         setFilters(clearedFilters);
         // Don't call fetchTableData here, let useEffect handle it
         setCurrentPage(1);
+    };
+
+    // Follow up functions
+    const handleCreateFollowUp = (subscription: Subscription) => {
+        setSelectedSubscription(subscription);
+        setFollowUpForm({
+            priority: 'medium',
+            description: '',
+            notes: '',
+        });
+        setShowFollowUpModal(true);
+    };
+
+    const handleSubmitFollowUp = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedSubscription || !followUpForm.description) {
+            return;
+        }
+
+        setSubmittingFollowUp(true);
+
+        try {
+            const response = await fetch('/admin/follow-ups', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    customer_id: selectedSubscription.customer_id,
+                    subscription_id: selectedSubscription.subscription_id,
+                    priority: followUpForm.priority,
+                    description: followUpForm.description,
+                    notes: followUpForm.notes || null,
+                }),
+            });
+
+            if (response.ok) {
+                setShowFollowUpModal(false);
+                setSelectedSubscription(null);
+                setFollowUpForm({
+                    priority: 'medium',
+                    description: '',
+                    notes: '',
+                });
+                // Refresh the table data
+                fetchTableData(currentPage, filters, true);
+            } else {
+                console.error('Failed to create follow up');
+            }
+        } catch (error) {
+            console.error('Error creating follow up:', error);
+        } finally {
+            setSubmittingFollowUp(false);
+        }
     };
 
     const formatCurrency = (amount: number) => {
@@ -233,8 +288,10 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
     };
 
     const SortIcon = ({ field }: { field: string }) => {
-        if (filters.sort !== field) return <span className="h-4 w-4" />;
-        return filters.direction === 'asc' ? <span className="text-xs">↑</span> : <span className="text-xs">↓</span>;
+        if (filters.sort !== field) {
+            return <span className="text-gray-400">↕</span>;
+        }
+        return filters.direction === 'asc' ? <span>↑</span> : <span>↓</span>;
     };
 
     const columns: TableColumn[] = [
@@ -244,8 +301,8 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
             sortable: true,
             render: (data: Subscription) => (
                 <div>
-                    <p className="font-medium">{data.subscription_id}</p>
-                    <p className="text-sm text-muted-foreground">Service: {data.serv_id}</p>
+                    <div className="font-medium">{data.subscription_id}</div>
+                    <div className="text-xs text-muted-foreground">{data.serv_id}</div>
                 </div>
             ),
         },
@@ -255,9 +312,9 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
             sortable: true,
             render: (data: Subscription) => (
                 <div>
-                    <p className="font-medium">{data.customer?.customer_name || 'N/A'}</p>
-                    <p className="text-sm text-muted-foreground">{data.customer_id}</p>
-                    <p className="text-xs text-muted-foreground">{data.customer?.customer_phone}</p>
+                    <div className="font-medium">{data.customer?.customer_name}</div>
+                    <div className="text-xs text-muted-foreground">{data.customer?.customer_email}</div>
+                    <div className="text-xs text-muted-foreground">ID: {data.customer_id}</div>
                 </div>
             ),
         },
@@ -265,10 +322,8 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
             header: 'Address',
             className: 'min-w-[200px]',
             render: (data: Subscription) => (
-                <div className="max-w-[200px]">
-                    <p className="truncate text-sm" title={data.subscription_address}>
-                        {data.subscription_address || 'N/A'}
-                    </p>
+                <div className="max-w-[200px] truncate" title={data.subscription_address}>
+                    {data.subscription_address}
                 </div>
             ),
         },
@@ -278,24 +333,49 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
             sortable: true,
             render: (data: Subscription) => {
                 const config = statusConfig[data.subscription_status as keyof typeof statusConfig];
-                return <Badge className={cn('text-xs', config?.className)}>{config?.label || data.subscription_status}</Badge>;
+                return <Badge className={config?.className || 'bg-gray-100 text-gray-800'}>{config?.label || data.subscription_status}</Badge>;
             },
         },
         {
             header: 'Group',
             className: 'min-w-[80px]',
             sortable: true,
-            render: (data: Subscription) => <span className="text-sm">{data.group || 'N/A'}</span>,
+            render: (data: Subscription) => <span className="font-mono text-sm">{data.group}</span>,
         },
-        // add subscription_description
         {
             header: 'Description',
             className: 'min-w-[200px]',
             render: (data: Subscription) => (
-                <div className="max-w-[200px]">
-                    <p className="truncate text-sm" title={data.subscription_description || 'No description'}>
-                        {data.subscription_description || 'No description'}
-                    </p>
+                <div className="max-w-[200px] truncate" title={data.subscription_description}>
+                    {data.subscription_description}
+                </div>
+            ),
+        },
+        {
+            header: 'Follow Up',
+            className: 'min-w-[120px]',
+            render: (data: Subscription) => (
+                <div className="space-y-1">
+                    {data.has_active_follow_ups ? (
+                        <div className="space-y-1">
+                            {data.active_follow_ups?.slice(0, 2).map((followUp) => (
+                                <div key={followUp.id} className="text-xs">
+                                    <Badge variant="outline" className="text-xs">
+                                        {followUp.priority}
+                                    </Badge>
+                                    <span className="ml-1 text-muted-foreground">({followUp.status})</span>
+                                </div>
+                            ))}
+                            {(data.active_follow_ups?.length || 0) > 2 && (
+                                <div className="text-xs text-muted-foreground">+{(data.active_follow_ups?.length || 0) - 2} more</div>
+                            )}
+                        </div>
+                    ) : (
+                        <Button size="sm" variant="default" onClick={() => handleCreateFollowUp(data)} className="text-xs">
+                            <Plus className="mr-1 h-3 w-3" />
+                            Add Follow Up
+                        </Button>
+                    )}
                 </div>
             ),
         },
@@ -304,69 +384,70 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
             header: 'Start Date',
             className: 'min-w-[120px]',
             sortable: true,
-            render: (data: Subscription) => (
-                <span className="text-sm">{data.subscription_start_date ? formatDate(data.subscription_start_date) : 'N/A'}</span>
-            ),
+            render: (data: Subscription) => <div className="text-sm">{formatDate(data.subscription_start_date)}</div>,
         },
-        // add updated at
         {
             header: 'Updated At',
             className: 'min-w-[120px]',
             sortable: true,
-            render: (data: Subscription) => <span className="text-sm">{data.updated_at ? formatDate(data.updated_at) : 'N/A'}</span>,
+            render: (data: Subscription) => <div className="text-sm">{formatDate(data.updated_at)}</div>,
         },
 
         {
             header: 'Actions',
             className: 'min-w-[100px]',
             render: (data: Subscription) => (
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={`/admin/subscriptions/${data.subscription_id}`}>
+                <div className="flex gap-2">
+                    <Link href={`/admin/subscriptions/${data.subscription_id}`}>
+                        <Button size="sm" variant="outline">
                             <Eye className="h-4 w-4" />
-                        </Link>
-                    </Button>
+                        </Button>
+                    </Link>
                 </div>
             ),
         },
     ];
 
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            Subscriptions Data
-                            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                        </CardTitle>
-                        <CardDescription>{tableData && `Showing ${tableData.from}-${tableData.to} of ${tableData.total} records`}</CardDescription>
+        <div className="space-y-4">
+            {/* Search and Filter Bar */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Subscription Management</CardTitle>
+                            <CardDescription>Manage and track subscription data</CardDescription>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={cn('gap-2', showFilters && 'bg-muted')}
+                            >
+                                <Filter className="h-4 w-4" />
+                                Filters
+                            </Button>
+                        </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)}>
-                        <Filter className="mr-2 h-4 w-4" />
-                        {showFilters ? 'Hide' : 'Show'} Filters
-                    </Button>
-                </div>
-            </CardHeader>
-            <CardContent>
-                {/* Search and Filters */}
-                <div className="mb-6 space-y-4">
-                    {/* Search */}
-                    <form onSubmit={handleSearch} className="flex gap-4">
-                        <div className="flex-1">
+
+                    {/* Search Form */}
+                    <form onSubmit={handleSearch} className="flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
-                                placeholder="Search by ID, Service ID, Address, Customer Name..."
+                                placeholder="Search by subscription ID, customer name, email, or address..."
                                 value={filters.search}
                                 onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                                className="pl-9"
                             />
                         </div>
-                        <Button type="submit" disabled={loading}>
-                            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                            Search
+                        <Button type="submit" size="sm" disabled={loading}>
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
                         </Button>
-                        {(filters.search || filters.status || filters.group || filters.date_from || filters.date_to) && (
-                            <Button type="button" variant="outline" onClick={clearFilters}>
-                                <X className="mr-2 h-4 w-4" />
+                        {(filters.search || filters.status !== 'all' || filters.group !== 'all' || filters.date_from || filters.date_to) && (
+                            <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+                                <X className="h-4 w-4" />
                                 Clear
                             </Button>
                         )}
@@ -374,13 +455,10 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
 
                     {/* Advanced Filters */}
                     {showFilters && (
-                        <div className="grid grid-cols-1 gap-4 border-t pt-4 md:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-4">
                             <div>
-                                <label className="mb-2 block text-sm font-medium">Status</label>
-                                <Select
-                                    value={filters.status || 'all'}
-                                    onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value === 'all' ? '' : value }))}
-                                >
+                                <label className="text-sm font-medium">Status</label>
+                                <Select value={filters.status} onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="All Status" />
                                     </SelectTrigger>
@@ -395,11 +473,8 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
                             </div>
 
                             <div>
-                                <label className="mb-2 block text-sm font-medium">Group</label>
-                                <Select
-                                    value={filters.group || 'all'}
-                                    onValueChange={(value) => setFilters((prev) => ({ ...prev, group: value === 'all' ? '' : value }))}
-                                >
+                                <label className="text-sm font-medium">Group</label>
+                                <Select value={filters.group} onValueChange={(value) => setFilters((prev) => ({ ...prev, group: value }))}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="All Groups" />
                                     </SelectTrigger>
@@ -415,7 +490,7 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
                             </div>
 
                             <div>
-                                <label className="mb-2 block text-sm font-medium">Date From</label>
+                                <label className="text-sm font-medium">Start Date From</label>
                                 <Input
                                     type="date"
                                     value={filters.date_from}
@@ -424,7 +499,7 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
                             </div>
 
                             <div>
-                                <label className="mb-2 block text-sm font-medium">Date To</label>
+                                <label className="text-sm font-medium">Start Date To</label>
                                 <Input
                                     type="date"
                                     value={filters.date_to}
@@ -433,142 +508,181 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
                             </div>
                         </div>
                     )}
-                </div>
+                </CardHeader>
+            </Card>
 
-                {/* Per page selector */}
-                <div className="mb-4 flex items-center gap-2">
-                    <span className="text-sm">Show</span>
-                    <select
-                        value={perPage}
-                        onChange={(e) => {
-                            const newPerPage = Number(e.target.value);
-                            setPerPage(newPerPage);
-                            // Don't call fetchTableData here, let useEffect handle it
-                        }}
-                        className="rounded border px-2 py-1 text-sm dark:bg-muted dark:text-muted-foreground"
-                    >
-                        <option value={10}>10</option>
-                        <option value={15}>15</option>
-                        <option value={25}>25</option>
-                        <option value={50}>50</option>
-                        <option value={100}>100</option>
-                    </select>
-                    <span className="text-sm">entries</span>
-                </div>
-
-                {/* Table */}
-                <div className="space-y-4">
-                    {!tableData ? (
-                        <div className="py-8 text-center">
-                            <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin" />
-                            <p className="text-muted-foreground">Loading data...</p>
+            {/* Table */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <span className="text-sm text-muted-foreground">
+                                Showing {tableData?.from || 0} to {tableData?.to || 0} of {tableData?.total || 0} entries
+                            </span>
+                            <Select value={perPage.toString()} onValueChange={(value) => setPerPage(parseInt(value))}>
+                                <SelectTrigger className="w-20">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="15">15</SelectItem>
+                                    <SelectItem value="25">25</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                    ) : tableData.data.length === 0 ? (
-                        <div className="py-8 text-center">
-                            <p className="text-muted-foreground">No subscriptions found matching your criteria.</p>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="w-full overflow-x-auto">
-                                <div className="rounded-md">
-                                    <table className="w-full min-w-[1200px] border-collapse">
-                                        <thead className="bg-muted/50">
-                                            <tr>
-                                                {columns.map((column, index) => (
-                                                    <th
-                                                        key={index}
-                                                        className={cn(
-                                                            `border-b px-4 py-3 text-left text-sm font-medium ${column.className || ''}`,
-                                                            column.sortable && 'cursor-pointer hover:bg-muted/80',
-                                                        )}
-                                                        onClick={() =>
-                                                            column.sortable && handleSort(column.header.toLowerCase().replace(/\s+/g, '_'))
-                                                        }
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            {column.header}
-                                                            {column.sortable && <SortIcon field={column.header.toLowerCase().replace(/\s+/g, '_')} />}
-                                                        </div>
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {tableData.data.map((item, index) => (
-                                                <tr key={item.subscription_id} className="border-b hover:bg-muted/50">
-                                                    {columns.map((column, colIndex) => (
-                                                        <td key={colIndex} className={`px-4 py-3 text-sm ${column.className || ''}`}>
-                                                            {column.render(item)}
-                                                        </td>
-                                                    ))}
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="relative">
+                        {loading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50">
+                                <Loader2 className="h-8 w-8 animate-spin" />
                             </div>
+                        )}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b">
+                                        {columns.map((column, index) => (
+                                            <th
+                                                key={index}
+                                                className={cn(
+                                                    'p-3 text-left font-medium',
+                                                    column.className,
+                                                    column.sortable && 'cursor-pointer hover:bg-muted/50',
+                                                )}
+                                                onClick={() => column.sortable && handleSort(column.header.toLowerCase().replace(' ', '_'))}
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    {column.header}
+                                                    {column.sortable && <SortIcon field={column.header.toLowerCase().replace(' ', '_')} />}
+                                                </div>
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tableData?.data.map((item, index) => (
+                                        <tr key={index} className="border-b hover:bg-muted/50">
+                                            {columns.map((column, colIndex) => (
+                                                <td key={colIndex} className={cn('p-3', column.className)}>
+                                                    {column.render(item)}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
-                            {/* Pagination */}
-                            {tableData.last_page > 1 && (
-                                <div className="flex items-center justify-between">
-                                    <div className="text-sm text-muted-foreground">
-                                        Showing {tableData.from} to {tableData.to} of {tableData.total} results
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage <= 1 || loading}
-                                        >
-                                            <ChevronLeft className="h-4 w-4" />
-                                            Previous
-                                        </Button>
+            {/* Pagination */}
+            {tableData && tableData.last_page > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1 || loading}>
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                    </Button>
 
-                                        <div className="flex items-center gap-1">
-                                            {Array.from({ length: Math.min(5, tableData.last_page) }, (_, i) => {
-                                                let pageNum;
-                                                if (tableData.last_page <= 5) {
-                                                    pageNum = i + 1;
-                                                } else if (currentPage <= 3) {
-                                                    pageNum = i + 1;
-                                                } else if (currentPage >= tableData.last_page - 2) {
-                                                    pageNum = tableData.last_page - 4 + i;
-                                                } else {
-                                                    pageNum = currentPage - 2 + i;
-                                                }
+                    {/* Page Numbers */}
+                    <div className="flex gap-1">
+                        {[...Array(Math.min(5, tableData.last_page))].map((_, i) => {
+                            const pageNumber = Math.max(1, Math.min(tableData.last_page - 4, Math.max(1, currentPage - 2))) + i;
+                            if (pageNumber <= tableData.last_page) {
+                                return (
+                                    <Button
+                                        key={pageNumber}
+                                        variant={currentPage === pageNumber ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => handlePageChange(pageNumber)}
+                                        disabled={loading}
+                                        className="min-w-[40px]"
+                                    >
+                                        {pageNumber}
+                                    </Button>
+                                );
+                            }
+                            return null;
+                        })}
+                    </div>
 
-                                                return (
-                                                    <Button
-                                                        key={pageNum}
-                                                        variant={currentPage === pageNum ? 'default' : 'outline'}
-                                                        size="sm"
-                                                        onClick={() => handlePageChange(pageNum)}
-                                                        disabled={loading}
-                                                        className="h-8 w-8 p-0"
-                                                    >
-                                                        {pageNum}
-                                                    </Button>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage >= tableData.last_page || loading}
-                                        >
-                                            Next
-                                            <ChevronRight className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage >= tableData.last_page || loading}
+                    >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
                 </div>
-            </CardContent>
-        </Card>
+            )}
+
+            {/* Follow Up Modal */}
+            <Dialog open={showFollowUpModal} onOpenChange={setShowFollowUpModal}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Add Follow Up</DialogTitle>
+                        <DialogDescription>Create a follow up for {selectedSubscription?.customer?.customer_name}</DialogDescription>
+                    </DialogHeader>
+
+                    <form onSubmit={handleSubmitFollowUp} className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="priority">Priority</Label>
+                            <Select
+                                value={followUpForm.priority}
+                                onValueChange={(value) => setFollowUpForm((prev) => ({ ...prev, priority: value }))}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select priority" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="low">Low</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="urgent">Urgent</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="description">Description *</Label>
+                            <Textarea
+                                id="description"
+                                value={followUpForm.description}
+                                onChange={(e) => setFollowUpForm((prev) => ({ ...prev, description: e.target.value }))}
+                                placeholder="Describe the follow up requirement..."
+                                rows={3}
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Notes</Label>
+                            <Textarea
+                                id="notes"
+                                value={followUpForm.notes}
+                                onChange={(e) => setFollowUpForm((prev) => ({ ...prev, notes: e.target.value }))}
+                                placeholder="Any additional notes..."
+                                rows={2}
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                            <Button type="button" variant="outline" onClick={() => setShowFollowUpModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={submittingFollowUp || !followUpForm.description}>
+                                {submittingFollowUp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Create Follow Up
+                            </Button>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 }

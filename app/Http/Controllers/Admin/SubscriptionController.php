@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Subscription;
+use App\Models\CustomerFollowUp;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,7 +16,10 @@ class SubscriptionController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = Subscription::with('customer:customer_id,customer_name,customer_email,customer_phone')
+        $query = Subscription::with([
+            'customer:customer_id,customer_name,customer_email,customer_phone',
+            'activeFollowUps:id,subscription_id,customer_id,priority,status'
+        ])
             ->select([
                 'subscription_id',
                 'customer_id',
@@ -266,7 +270,10 @@ class SubscriptionController extends Controller
      */
     public function tableData(Request $request)
     {
-        $query = Subscription::with('customer:customer_id,customer_name,customer_email,customer_phone')
+        $query = Subscription::with([
+            'customer:customer_id,customer_name,customer_email,customer_phone',
+            'activeFollowUps:id,subscription_id,customer_id,priority,status'
+        ])
             ->select([
                 'subscription_id',
                 'customer_id',
@@ -302,12 +309,12 @@ class SubscriptionController extends Controller
         }
 
         // Apply status filter
-        if ($request->filled('status')) {
+        if ($request->filled('status') && $request->status !== 'all') {
             $query->where('subscription_status', $request->status);
         }
 
         // Apply group filter
-        if ($request->filled('group')) {
+        if ($request->filled('group') && $request->group !== 'all') {
             $query->where('group', $request->group);
         }
 
@@ -351,6 +358,53 @@ class SubscriptionController extends Controller
         $perPage = $request->get('per_page', 15);
         $subscriptions = $query->paginate($perPage);
 
+        // Add has_active_follow_ups attribute to each subscription
+        $subscriptions->getCollection()->transform(function ($subscription) {
+            $subscription->has_active_follow_ups = $subscription->activeFollowUps->count() > 0;
+            return $subscription;
+        });
+
         return response()->json($subscriptions);
+    }
+
+    /**
+     * Create follow up for specific subscription
+     */
+    public function createFollowUp(Request $request, Subscription $subscription)
+    {
+        $validated = $request->validate([
+            'priority' => 'required|in:low,medium,high,urgent',
+            'description' => 'nullable|string|max:1000',
+            'notes' => 'nullable|string|max:1000',
+            'assigned_to' => 'nullable|string',
+        ]);
+
+        // Convert "unassigned" to null
+        if ($validated['assigned_to'] === 'unassigned') {
+            $validated['assigned_to'] = null;
+        }
+
+        // Validate assigned_to is a valid user ID if not null
+        if ($validated['assigned_to'] !== null) {
+            $request->validate([
+                'assigned_to' => 'exists:users,id',
+            ]);
+        }
+
+        $followUp = CustomerFollowUp::create([
+            'customer_id' => $subscription->customer_id,
+            'subscription_id' => $subscription->subscription_id,
+            'priority' => $validated['priority'],
+            'description' => $validated['description'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+            'assigned_to' => $validated['assigned_to'] ?? null,
+            'created_by' => auth()->id(),
+            'status' => 'pending',
+        ]);
+
+        return response()->json([
+            'message' => 'Follow up berhasil dibuat',
+            'follow_up' => $followUp->load(['creator', 'assignee'])
+        ]);
     }
 }

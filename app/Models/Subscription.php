@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Subscription extends Model
 {
@@ -65,5 +66,30 @@ class Subscription extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class, 'customer_id', 'customer_id');
+    }
+
+    /**
+     * Follow ups untuk subscription ini
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(CustomerFollowUp::class, 'subscription_id', 'subscription_id');
+    }
+
+    /**
+     * Follow ups yang masih aktif (pending/in progress)
+     */
+    public function activeFollowUps(): HasMany
+    {
+        return $this->hasMany(CustomerFollowUp::class, 'subscription_id', 'subscription_id')
+            ->whereIn('status', ['pending', 'in_progress']);
+    }
+
+    /**
+     * Check if subscription has active follow ups
+     */
+    public function getHasActiveFollowUpsAttribute(): bool
+    {
+        return $this->activeFollowUps()->exists();
     }
 }

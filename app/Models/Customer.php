@@ -35,5 +35,29 @@ class Customer extends Model
     {
         return $this->hasMany(Subscription::class, 'customer_id', 'customer_id');
     }
+
+    /**
+     * Follow ups untuk customer ini
+     */
+    public function followUps(): HasMany
+    {
+        return $this->hasMany(CustomerFollowUp::class, 'customer_id', 'customer_id');
+    }
+
+    /**
+     * Follow ups yang masih aktif (pending/in progress)
+     */
+    public function activeFollowUps(): HasMany
+    {
+        return $this->hasMany(CustomerFollowUp::class, 'customer_id', 'customer_id')
+            ->whereIn('status', ['pending', 'in_progress']);
+    }
+
+    /**
+     * Check if customer has active follow ups
+     */
+    public function getHasActiveFollowUpsAttribute(): bool
+    {
+        return $this->activeFollowUps()->exists();
+    }
 }
-// Compare this snippet from app/Models/Subscription.php:

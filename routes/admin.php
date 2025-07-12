@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\DatabaseImportController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CancelSubscriptionController;
 use App\Http\Controllers\Admin\SubscriptionController;
+use App\Http\Controllers\Admin\CustomerFollowUpController;
 use Illuminate\Support\Facades\Route;
 
 // Admin routes with authentication and permission middleware
@@ -106,5 +107,24 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('/table-data', [SuspendSubscriptionController::class, 'tableData'])->name('table-data');
         Route::get('/clustered-data', [SuspendSubscriptionController::class, 'clusteredData'])->name('clustered-data');
         Route::get('/export', [SuspendSubscriptionController::class, 'export'])->name('export');
+    });
+
+    // Customer Follow Up routes
+    Route::middleware('can:view-reports')->prefix('follow-ups')->name('follow-ups.')->group(function () {
+        Route::get('/', [CustomerFollowUpController::class, 'index'])->name('index');
+        Route::post('/table-data', [CustomerFollowUpController::class, 'tableData'])->name('table-data');
+        Route::get('/create', [CustomerFollowUpController::class, 'create'])->name('create');
+        Route::post('/', [CustomerFollowUpController::class, 'store'])->name('store');
+        Route::get('/{followUp}', [CustomerFollowUpController::class, 'show'])->name('show');
+        Route::get('/{followUp}/edit', [CustomerFollowUpController::class, 'edit'])->name('edit');
+        Route::put('/{followUp}', [CustomerFollowUpController::class, 'update'])->name('update');
+        Route::delete('/{followUp}', [CustomerFollowUpController::class, 'destroy'])->name('destroy');
+        Route::get('/export/excel', [CustomerFollowUpController::class, 'export'])->name('export');
+        Route::get('/create-from-subscription', [CustomerFollowUpController::class, 'createFromSubscription'])->name('create-from-subscription');
+    });
+
+    // Subscription follow up routes
+    Route::middleware('can:view-reports')->prefix('subscriptions')->name('subscriptions.')->group(function () {
+        Route::post('/{subscription}/follow-up', [SubscriptionController::class, 'createFollowUp'])->name('create-follow-up');
     });
 });

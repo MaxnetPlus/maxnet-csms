@@ -1,22 +1,9 @@
-import React from 'react';
-import { Head, Link } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-    ArrowLeft,
-    Calendar,
-    MapPin,
-    Phone,
-    Mail,
-    User,
-    CreditCard,
-    Settings,
-    Clock,
-    Wifi
-} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import { Subscription, Customer } from '@/types';
+import { Customer, Subscription } from '@/types';
+import { Head, Link } from '@inertiajs/react';
+import { ArrowLeft, Calendar, Clock, CreditCard, Mail, MapPin, Phone, Settings, User, Wifi } from 'lucide-react';
 
 interface Props {
     subscription: Subscription & { customer?: Customer };
@@ -50,27 +37,25 @@ export default function Show({ subscription }: Props) {
     return (
         <AppLayout>
             <Head title={`Subscription ${subscription.subscription_id}`} />
-            
-            <div className="container mx-auto p-6 space-y-6">
+
+            <div className="container mx-auto space-y-6 p-6">
                 {/* Header */}
                 <div className="flex items-center gap-4">
-                    <Link 
+                    <Link
                         href={route('admin.subscriptions.index')}
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2"
+                        className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                     >
-                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        <ArrowLeft className="mr-2 h-4 w-4" />
                         Back to Subscriptions
                     </Link>
                     <div>
                         <h1 className="text-3xl font-bold">Subscription Details</h1>
-                        <p className="text-muted-foreground">
-                            View detailed information about subscription {subscription.subscription_id}
-                        </p>
+                        <p className="text-muted-foreground">View detailed information about subscription {subscription.subscription_id}</p>
                     </div>
                 </div>
 
                 {/* Status and Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -82,10 +67,9 @@ export default function Show({ subscription }: Props) {
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">Status</label>
                                 <div className="mt-1">
-                                    <Badge 
-                                        className={statusConfig[subscription.subscription_status as keyof typeof statusConfig]?.className}
-                                    >
-                                        {statusConfig[subscription.subscription_status as keyof typeof statusConfig]?.label || subscription.subscription_status}
+                                    <Badge className={statusConfig[subscription.subscription_status as keyof typeof statusConfig]?.className}>
+                                        {statusConfig[subscription.subscription_status as keyof typeof statusConfig]?.label ||
+                                            subscription.subscription_status}
                                     </Badge>
                                 </div>
                             </div>
@@ -169,7 +153,7 @@ export default function Show({ subscription }: Props) {
                 </div>
 
                 {/* Location and Technical Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <Card>
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
@@ -232,7 +216,7 @@ export default function Show({ subscription }: Props) {
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">Is CPE Rent</label>
                                 <div className="mt-1">
-                                    <Badge variant={subscription.is_cpe_rent ? "default" : "secondary"}>
+                                    <Badge variant={subscription.is_cpe_rent ? 'default' : 'secondary'}>
                                         {subscription.is_cpe_rent ? 'Yes' : 'No'}
                                     </Badge>
                                 </div>
@@ -250,16 +234,14 @@ export default function Show({ subscription }: Props) {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">Created At</label>
                                 <div className="mt-1 text-sm">{formatDate(subscription.created_at)}</div>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">Approved At</label>
-                                <div className="mt-1 text-sm">
-                                    {subscription.approved_at ? formatDate(subscription.approved_at) : 'Not approved'}
-                                </div>
+                                <div className="mt-1 text-sm">{subscription.approved_at ? formatDate(subscription.approved_at) : 'Not approved'}</div>
                             </div>
                             <div>
                                 <label className="text-sm font-medium text-muted-foreground">Installed At</label>
@@ -294,7 +276,7 @@ export default function Show({ subscription }: Props) {
                             <CardTitle>Additional Information</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                                 {subscription.subscription_test_result && (
                                     <div>
                                         <label className="text-sm font-medium text-muted-foreground">Test Result</label>
