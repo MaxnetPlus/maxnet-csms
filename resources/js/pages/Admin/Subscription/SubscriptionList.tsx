@@ -248,6 +248,7 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
                     subscription_id: selectedSubscription.subscription_id,
                     priority: followUpForm.priority,
                     description: followUpForm.description,
+                    assigned_to: 'unassigned', // Default to unassigned
                     notes: followUpForm.notes || null,
                 }),
             });

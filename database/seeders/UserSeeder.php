@@ -12,10 +12,10 @@ class UserSeeder extends Seeder
     {
         // Buat akun Admin
         $admin = User::firstOrCreate(
-            ['email' => 'admin@example.com'],
+            ['email' => 'admin@dibi.id'],
             [
-                'name'              => 'Administrator',
-                'password'          => Hash::make('password123'), // ganti sesuai kebutuhan
+                'name' => 'Administrator',
+                'password' => Hash::make('password123'), // ganti sesuai kebutuhan
                 'email_verified_at' => now(),
             ]
         );
@@ -23,10 +23,10 @@ class UserSeeder extends Seeder
 
         // Buat akun User biasa
         $user = User::firstOrCreate(
-            ['email' => 'user@example.com'],
+            ['email' => 'user@dibi.id'],
             [
-                'name'              => 'Regular User',
-                'password'          => Hash::make('secret123'),
+                'name' => 'Regular User',
+                'password' => Hash::make('password123'),
                 'email_verified_at' => now(),
             ]
         );

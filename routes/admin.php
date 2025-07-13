@@ -113,6 +113,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::middleware('can:view-reports')->prefix('follow-ups')->name('follow-ups.')->group(function () {
         Route::get('/', [CustomerFollowUpController::class, 'index'])->name('index');
         Route::post('/table-data', [CustomerFollowUpController::class, 'tableData'])->name('table-data');
+        Route::get('/search-customers', [CustomerFollowUpController::class, 'searchCustomers'])->name('search-customers');
         Route::get('/create', [CustomerFollowUpController::class, 'create'])->name('create');
         Route::post('/', [CustomerFollowUpController::class, 'store'])->name('store');
         Route::get('/{followUp}', [CustomerFollowUpController::class, 'show'])->name('show');

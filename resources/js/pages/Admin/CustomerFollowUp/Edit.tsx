@@ -7,8 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, Calendar, Clock, Save, Search } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowLeft, Calendar, Clock, Save } from 'lucide-react';
 
 interface User {
     id: number;
@@ -44,7 +43,6 @@ interface CustomerFollowUp {
 
 interface Props {
     followUp: CustomerFollowUp;
-    customers: Customer[];
     users: User[];
 }
 
@@ -55,7 +53,7 @@ const statusConfig = {
     cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300' },
 } as const;
 
-export default function Edit({ followUp, customers, users }: Props) {
+export default function Edit({ followUp, users }: Props) {
     const { data, setData, put, processing, errors } = useForm({
         customer_id: followUp.customer_id,
         subscription_id: followUp.subscription_id || '',
@@ -67,32 +65,9 @@ export default function Edit({ followUp, customers, users }: Props) {
         assigned_to: followUp.assignee?.id?.toString() || 'unassigned',
     });
 
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(followUp.customer || null);
-    const [customerSearchTerm, setCustomerSearchTerm] = useState('');
-
-    // Filter customers based on search term
-    const filteredCustomers = useMemo(() => {
-        if (!customerSearchTerm) return customers.slice(0, 50); // Show first 50 by default
-
-        return customers
-            .filter(
-                (customer) =>
-                    customer.customer_name.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
-                    customer.customer_id.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
-                    customer.customer_email.toLowerCase().includes(customerSearchTerm.toLowerCase()),
-            )
-            .slice(0, 20); // Limit to 20 results when searching
-    }, [customers, customerSearchTerm]);
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         put(route('admin.follow-ups.update', followUp.id));
-    };
-
-    const handleCustomerChange = (customerId: string) => {
-        const customer = customers.find((c) => c.customer_id === customerId);
-        setSelectedCustomer(customer || null);
-        setData('customer_id', customerId);
     };
 
     const formatDate = (date: string) => {
@@ -165,38 +140,15 @@ export default function Edit({ followUp, customers, users }: Props) {
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                {/* Customer Selection */}
+                                {/* Customer Information (Read-only) */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="customer_id">Customer *</Label>
-                                    <div className="relative">
-                                        <Search className="absolute top-3 left-3 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            placeholder="Search customers..."
-                                            value={customerSearchTerm}
-                                            onChange={(e) => setCustomerSearchTerm(e.target.value)}
-                                            className="mb-2 pl-9"
-                                        />
+                                    <Label>Customer</Label>
+                                    <div className="rounded-md border border-input bg-muted px-3 py-2">
+                                        <div className="text-sm font-medium">{followUp.customer?.customer_name}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {followUp.customer?.customer_id} • {followUp.customer?.customer_email}
+                                        </div>
                                     </div>
-                                    <Select value={data.customer_id} onValueChange={handleCustomerChange}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select customer" />
-                                        </SelectTrigger>
-                                        <SelectContent className="max-h-[200px] overflow-y-auto">
-                                            {filteredCustomers.length === 0 ? (
-                                                <div className="px-2 py-3 text-sm text-muted-foreground">No customers found</div>
-                                            ) : (
-                                                filteredCustomers.map((customer) => (
-                                                    <SelectItem key={customer.customer_id} value={customer.customer_id}>
-                                                        {customer.customer_name} ({customer.customer_id})
-                                                    </SelectItem>
-                                                ))
-                                            )}
-                                        </SelectContent>
-                                    </Select>
-                                    {errors.customer_id && <p className="text-sm text-red-600">{errors.customer_id}</p>}
-                                    {customerSearchTerm && filteredCustomers.length > 0 && (
-                                        <p className="text-xs text-muted-foreground">Showing {filteredCustomers.length} result(s)</p>
-                                    )}
                                 </div>
 
                                 {/* Subscription ID */}
@@ -303,31 +255,6 @@ export default function Edit({ followUp, customers, users }: Props) {
                                 />
                                 {errors.resolution && <p className="text-sm text-red-600">{errors.resolution}</p>}
                             </div>
-
-                            {/* Customer Info Preview */}
-                            {selectedCustomer && (
-                                <Card className="bg-muted/50">
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="text-base">Customer Information</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="pt-0">
-                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                            <div>
-                                                <p className="text-sm font-medium">Name</p>
-                                                <p className="text-sm text-muted-foreground">{selectedCustomer.customer_name}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">Email</p>
-                                                <p className="text-sm text-muted-foreground">{selectedCustomer.customer_email || 'N/A'}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">Customer ID</p>
-                                                <p className="text-sm text-muted-foreground">{selectedCustomer.customer_id}</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
 
                             {/* Submit Buttons */}
                             <div className="flex items-center gap-4 pt-6">

@@ -88,10 +88,6 @@ class CustomerFollowUpController extends Controller
      */
     public function create(Request $request)
     {
-        $customers = Customer::select('customer_id', 'customer_name', 'customer_email')
-            ->orderBy('customer_name')
-            ->get();
-
         $users = User::select('id', 'name')->get();
 
         $subscription = null;
@@ -102,7 +98,6 @@ class CustomerFollowUpController extends Controller
         }
 
         return Inertia::render('Admin/CustomerFollowUp/Create', [
-            'customers' => $customers,
             'users' => $users,
             'subscription' => $subscription,
         ]);
@@ -110,8 +105,10 @@ class CustomerFollowUpController extends Controller
 
     /**
      * Store a newly created follow up in storage.
-     */    public function store(Request $request)
+     */
+    public function store(Request $request)
     {
+
         $validated = $request->validate([
             'customer_id' => 'required|exists:customers,customer_id',
             'subscription_id' => 'nullable|exists:subscriptions,subscription_id',
@@ -121,8 +118,7 @@ class CustomerFollowUpController extends Controller
             'assigned_to' => 'nullable|string',
         ]);
 
-        // Convert "unassigned" to null
-        if ($validated['assigned_to'] === 'unassigned') {
+        if ($validated['assigned_to'] === 'unassigned' || $validated['assigned_to'] === null) {
             $validated['assigned_to'] = null;
         }
 
@@ -161,29 +157,22 @@ class CustomerFollowUpController extends Controller
     {
         $followUp->load(['customer', 'subscription', 'assignee']);
 
-        // Load more customers for better search experience
-        $customers = Customer::select('customer_id', 'customer_name', 'customer_email')
-            ->orderBy('customer_name')
-            ->limit(500) // Increased limit for better search
-            ->get();
-
         $users = User::select('id', 'name')
             ->orderBy('name')
             ->get();
 
         return Inertia::render('Admin/CustomerFollowUp/Edit', [
             'followUp' => $followUp,
-            'customers' => $customers,
             'users' => $users,
         ]);
     }
 
     /**
      * Update the specified follow up in storage.
-     */    public function update(Request $request, CustomerFollowUp $followUp)
+     */
+    public function update(Request $request, CustomerFollowUp $followUp)
     {
         $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,customer_id',
             'subscription_id' => 'nullable|exists:subscriptions,subscription_id',
             'priority' => 'required|in:low,medium,high,urgent',
             'status' => 'required|in:pending,in_progress,completed,cancelled',
@@ -231,7 +220,8 @@ class CustomerFollowUpController extends Controller
 
     /**
      * Export follow ups to Excel.
-     */    public function export(Request $request)
+     */
+    public function export(Request $request)
     {
         $filters = $request->only(['search', 'status', 'priority', 'assigned_to', 'date_from', 'date_to']);
 
@@ -310,5 +300,32 @@ class CustomerFollowUpController extends Controller
         $followUps = $query->paginate($perPage, ['*'], 'page', $request->get('page', 1));
 
         return response()->json($followUps);
+    }
+
+    /**
+     * Search customers for AJAX requests
+     */
+    public function searchCustomers(Request $request)
+    {
+        $search = $request->get('search', '');
+
+        if (strlen($search) < 3) {
+            return response()->json([]);
+        }
+
+        $customers = Customer::select('customer_id', 'customer_name', 'customer_email')
+            ->where(function ($query) use ($search) {
+                $query->where('customer_name', 'like', '%' . $search . '%')
+                    ->orWhere('customer_id', 'like', '%' . $search . '%');
+            })
+            ->with([
+                'subscriptions' => function ($query) {
+                    $query->select('subscription_id', 'customer_id', 'subscription_description', 'subscription_status');
+                }
+            ])
+            ->limit(20)
+            ->get();
+
+        return response()->json($customers);
     }
 }

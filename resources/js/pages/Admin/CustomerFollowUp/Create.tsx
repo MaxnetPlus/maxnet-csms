@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CustomerCombobox } from '@/components/ui/customer-combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,7 +8,6 @@ import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, Save } from 'lucide-react';
-import { useState } from 'react';
 
 interface User {
     id: number;
@@ -27,12 +27,11 @@ interface Subscription {
 }
 
 interface Props {
-    customers: Customer[];
     users: User[];
     subscription?: Subscription;
 }
 
-export default function Create({ customers, users, subscription }: Props) {
+export default function Create({ users, subscription }: Props) {
     const { data, setData, post, processing, errors } = useForm({
         customer_id: subscription?.customer?.customer_id || '',
         subscription_id: subscription?.subscription_id || '',
@@ -42,17 +41,17 @@ export default function Create({ customers, users, subscription }: Props) {
         assigned_to: 'unassigned',
     });
 
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(subscription?.customer || null);
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         post(route('admin.follow-ups.store'));
     };
 
     const handleCustomerChange = (customerId: string) => {
-        const customer = customers.find((c) => c.customer_id === customerId);
-        setSelectedCustomer(customer || null);
         setData('customer_id', customerId);
+    };
+
+    const handleSubscriptionChange = (subscriptionId: string) => {
+        setData('subscription_id', subscriptionId);
     };
 
     return (
@@ -86,18 +85,13 @@ export default function Create({ customers, users, subscription }: Props) {
                                 {/* Customer Selection */}
                                 <div className="space-y-2">
                                     <Label htmlFor="customer_id">Customer *</Label>
-                                    <Select value={data.customer_id} onValueChange={handleCustomerChange} disabled={!!subscription}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select customer" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {customers.map((customer) => (
-                                                <SelectItem key={customer.customer_id} value={customer.customer_id}>
-                                                    {customer.customer_name} ({customer.customer_id})
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <CustomerCombobox
+                                        value={data.customer_id}
+                                        onValueChange={handleCustomerChange}
+                                        onSubscriptionChange={handleSubscriptionChange}
+                                        disabled={!!subscription}
+                                        placeholder="Search and select customer..."
+                                    />
                                     {errors.customer_id && <p className="text-sm text-red-600">{errors.customer_id}</p>}
                                 </div>
 
@@ -176,31 +170,6 @@ export default function Create({ customers, users, subscription }: Props) {
                                 />
                                 {errors.notes && <p className="text-sm text-red-600">{errors.notes}</p>}
                             </div>
-
-                            {/* Customer Info Preview */}
-                            {selectedCustomer && (
-                                <Card className="bg-muted/50">
-                                    <CardHeader className="pb-3">
-                                        <CardTitle className="text-base">Customer Information</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="pt-0">
-                                        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                            <div>
-                                                <p className="text-sm font-medium">Name</p>
-                                                <p className="text-sm text-muted-foreground">{selectedCustomer.customer_name}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">Email</p>
-                                                <p className="text-sm text-muted-foreground">{selectedCustomer.customer_email || 'N/A'}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-medium">Customer ID</p>
-                                                <p className="text-sm text-muted-foreground">{selectedCustomer.customer_id}</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
 
                             {/* Subscription Info Preview */}
                             {subscription && (

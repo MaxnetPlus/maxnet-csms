@@ -16,6 +16,8 @@ export interface BreadcrumbItem {
 export interface NavGroup {
     title: string;
     items: NavItem[];
+    collapsible?: boolean; // Whether the group can be collapsed (default: true)
+    defaultOpen?: boolean; // Whether the group is open by default (default: true)
 }
 
 export interface NavItem {

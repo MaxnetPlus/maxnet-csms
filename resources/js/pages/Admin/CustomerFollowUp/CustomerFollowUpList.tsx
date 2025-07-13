@@ -4,8 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { Link } from '@inertiajs/react';
-import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Edit, Eye, Filter, Loader2, Search, X } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Edit, Eye, Filter, Loader2, Search, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface User {
@@ -216,6 +216,23 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
         setCurrentPage(1);
     };
 
+    const handleDelete = async (id: number) => {
+        if (!confirm('Are you sure you want to delete this follow up? This action cannot be undone.')) {
+            return;
+        }
+
+        router.delete(route('admin.follow-ups.destroy', id), {
+            onSuccess: () => {
+                // Refresh the table data
+                fetchTableData(currentPage, filters, true);
+            },
+            onError: (errors) => {
+                console.error('Error deleting follow up:', errors);
+                alert('An error occurred while deleting the follow up.');
+            },
+        });
+    };
+
     const formatDate = (date: string) => {
         return new Date(date).toLocaleDateString('id-ID', {
             year: 'numeric',
@@ -338,19 +355,28 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
         },
         {
             header: 'Actions',
-            className: 'min-w-[120px]',
+            className: 'min-w-[160px]',
             render: (data: CustomerFollowUp) => (
                 <div className="flex gap-2">
                     <Link href={`/admin/follow-ups/${data.id}`}>
-                        <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0" title="View Details">
                             <Eye className="h-4 w-4" />
                         </Button>
                     </Link>
                     <Link href={`/admin/follow-ups/${data.id}/edit`}>
-                        <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0" title="Edit Follow Up">
                             <Edit className="h-4 w-4" />
                         </Button>
                     </Link>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        title="Delete Follow Up"
+                        onClick={() => handleDelete(data.id)}
+                    >
+                        <Trash2 className="h-4 w-4" />
+                    </Button>
                 </div>
             ),
         },

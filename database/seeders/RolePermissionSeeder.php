@@ -21,6 +21,7 @@ class RolePermissionSeeder extends Seeder
             'manage-invitations',
             'manage-roles-and-permissions',
             'view-reports',
+            'export-data',
 
         ];
         foreach ($perms as $perm) {
@@ -34,8 +35,6 @@ class RolePermissionSeeder extends Seeder
         // Buat role user & beri permission terbatas
         $user = Role::firstOrCreate(['name' => 'user']);
         $user->syncPermissions([
-            'view-users',
-            'import-database',
             'view-reports',
         ]);
 
