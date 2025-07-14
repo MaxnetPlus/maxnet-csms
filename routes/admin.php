@@ -9,6 +9,9 @@ use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\CancelSubscriptionController;
 use App\Http\Controllers\Admin\SubscriptionController;
 use App\Http\Controllers\Admin\CustomerFollowUpController;
+use App\Http\Controllers\Admin\SalesManagementController;
+use App\Http\Controllers\Admin\ProspectManagementController;
+use App\Http\Controllers\Admin\ProspectCategoryController;
 use Illuminate\Support\Facades\Route;
 
 // Admin routes with authentication and permission middleware
@@ -127,5 +130,38 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Subscription follow up routes
     Route::middleware('can:view-reports')->prefix('subscriptions')->name('subscriptions.')->group(function () {
         Route::post('/{subscription}/follow-up', [SubscriptionController::class, 'createFollowUp'])->name('create-follow-up');
+    });
+
+    // Sales Management routes
+    Route::middleware('can:manage-sales-targets')->prefix('sales-management')->name('sales-management.')->group(function () {
+        Route::get('/', [SalesManagementController::class, 'index'])->name('index');
+        Route::get('/{salesManagement}', [SalesManagementController::class, 'show'])->name('show');
+        Route::get('/{salesManagement}/edit', [SalesManagementController::class, 'edit'])->name('edit');
+        Route::put('/{salesManagement}', [SalesManagementController::class, 'update'])->name('update');
+        Route::delete('/{salesManagement}', [SalesManagementController::class, 'destroy'])->name('destroy');
+    });
+
+    // Prospect Management routes  
+    Route::middleware('can:manage-prospects')->prefix('prospect-management')->name('prospect-management.')->group(function () {
+        Route::get('/', [ProspectManagementController::class, 'index'])->name('index');
+        Route::post('/table-data', [ProspectManagementController::class, 'tableData'])->name('table-data');
+        Route::get('/export', [ProspectManagementController::class, 'export'])->name('export');
+        Route::get('/{prospect}', [ProspectManagementController::class, 'show'])->name('show');
+        Route::delete('/{prospect}', [ProspectManagementController::class, 'destroy'])->name('destroy');
+        Route::patch('/{prospect}/status', [ProspectManagementController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{prospect}/approve', [ProspectManagementController::class, 'approve'])->name('approve');
+        Route::post('/bulk-approve', [ProspectManagementController::class, 'bulkApprove'])->name('bulk-approve');
+    });
+
+    // Prospect Categories Management routes
+    Route::middleware('can:manage-prospect-categories')->prefix('prospect-categories')->name('prospect-categories.')->group(function () {
+        Route::get('/', [ProspectCategoryController::class, 'index'])->name('index');
+        Route::get('/create', [ProspectCategoryController::class, 'create'])->name('create');
+        Route::post('/', [ProspectCategoryController::class, 'store'])->name('store');
+        Route::get('/{prospectCategory}', [ProspectCategoryController::class, 'show'])->name('show');
+        Route::get('/{prospectCategory}/edit', [ProspectCategoryController::class, 'edit'])->name('edit');
+        Route::put('/{prospectCategory}', [ProspectCategoryController::class, 'update'])->name('update');
+        Route::patch('/{prospectCategory}/toggle-status', [ProspectCategoryController::class, 'toggleStatus'])->name('toggle-status');
+        Route::delete('/{prospectCategory}', [ProspectCategoryController::class, 'destroy'])->name('destroy');
     });
 });

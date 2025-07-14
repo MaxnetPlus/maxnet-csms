@@ -1,5 +1,5 @@
-import { BookX, CaptionsOff, Database, FileText, HeadphonesIcon, List, Pickaxe, Shield, Users, Settings, Activity, BarChart, Clock } from 'lucide-react';
 import { NavGroup, NavItem } from '@/types';
+import { BookX, CaptionsOff, Database, FileText, HeadphonesIcon, List, Pickaxe, Shield, Tag, Target, UserCheck, Users } from 'lucide-react';
 
 export interface SidebarNavItem extends NavItem {
     permission?: string;
@@ -16,14 +16,11 @@ export interface SidebarGroupConfig {
 /**
  * Helper function to create sidebar groups with permission filtering
  */
-export function createSidebarGroups(
-    groupConfigs: SidebarGroupConfig[],
-    hasPermission: (permission: string) => boolean
-): NavGroup[] {
+export function createSidebarGroups(groupConfigs: SidebarGroupConfig[], hasPermission: (permission: string) => boolean): NavGroup[] {
     return groupConfigs
-        .map(group => {
+        .map((group) => {
             // Filter items based on permissions
-            const filteredItems = group.items.filter(item => {
+            const filteredItems = group.items.filter((item) => {
                 if (!item.permission) return true;
                 return hasPermission(item.permission);
             });
@@ -76,6 +73,31 @@ export const SIDEBAR_GROUPS: SidebarGroupConfig[] = [
             },
         ],
     },
+    {
+        title: 'Sales Management',
+        collapsible: true,
+        defaultOpen: false,
+        items: [
+            {
+                title: 'Sales Users',
+                href: '/admin/sales-management',
+                icon: UserCheck,
+                permission: 'manage-sales-targets',
+            },
+            {
+                title: 'Prospects',
+                href: '/admin/prospect-management',
+                icon: Target,
+                permission: 'manage-prospects',
+            },
+            {
+                title: 'Prospect Categories',
+                href: '/admin/prospect-categories',
+                icon: Tag,
+                permission: 'manage-prospect-categories',
+            },
+        ],
+    },
     // Example: Analytics group (commented out - uncomment to enable)
     // {
     //     title: 'Analytics',
@@ -102,7 +124,7 @@ export const SIDEBAR_GROUPS: SidebarGroupConfig[] = [
     //         },
     //     ],
     // },
-    
+
     // Example: System Administration group
     // {
     //     title: 'System Administration',

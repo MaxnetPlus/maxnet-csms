@@ -91,4 +91,68 @@ class User extends Authenticatable
     {
         return (bool) $this->is_approved;
     }
+
+    /**
+     * Prospects yang ditangani oleh sales ini
+     */
+    public function prospects()
+    {
+        return $this->hasMany(Prospect::class, 'sales_id');
+    }
+
+    /**
+     * Target sales untuk user ini
+     */
+    public function salesTargets()
+    {
+        return $this->hasMany(SalesTarget::class, 'sales_id');
+    }
+
+    /**
+     * Poin sales untuk user ini
+     */
+    public function salesPoints()
+    {
+        return $this->hasMany(SalesPoint::class, 'sales_id');
+    }
+
+    /**
+     * Get target sales yang sedang aktif
+     */
+    public function getCurrentTarget()
+    {
+        return SalesTarget::getCurrentTarget($this->id);
+    }
+
+    /**
+     * Get total poin hari ini
+     */
+    public function getTodayPoints()
+    {
+        return $this->salesPoints()->today()->sum('points_earned');
+    }
+
+    /**
+     * Get total poin bulan ini
+     */
+    public function getThisMonthPoints()
+    {
+        return $this->salesPoints()->thisMonth()->sum('points_earned');
+    }
+
+    /**
+     * Get akumulasi poin terkini
+     */
+    public function getCurrentAccumulation()
+    {
+        return SalesPoint::getCurrentAccumulation($this->id);
+    }
+
+    /**
+     * Check apakah user memiliki akses sales
+     */
+    public function hasSalesAccess(): bool
+    {
+        return $this->hasRole('sales') || $this->hasPermissionTo('access-sales');
+    }
 }
