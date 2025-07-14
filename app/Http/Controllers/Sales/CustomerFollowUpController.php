@@ -17,6 +17,14 @@ class CustomerFollowUpController extends Controller
         $query = CustomerFollowUp::where('assigned_to', auth()->id())
             ->with(['customer', 'subscription', 'creator']);
 
+        // Default to today's follow ups
+        $dateFrom = $request->filled('date_from') ? $request->date_from : today()->toDateString();
+        $dateTo = $request->filled('date_to') ? $request->date_to : today()->toDateString();
+
+        // Filter by date range
+        $query->whereDate('created_at', '>=', $dateFrom)
+            ->whereDate('created_at', '<=', $dateTo);
+
         // Filter by status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -40,7 +48,7 @@ class CustomerFollowUpController extends Controller
 
         return Inertia::render('Sales/FollowUps/Index', [
             'followUps' => $followUps,
-            'filters' => $request->only(['status', 'priority', 'search']),
+            'filters' => $request->only(['status', 'priority', 'search', 'date_from', 'date_to']),
         ]);
     }
 
@@ -66,27 +74,32 @@ class CustomerFollowUpController extends Controller
      */
     public function complete(Request $request, CustomerFollowUp $followUp)
     {
+        // Ensure user is authenticated
+        if (!auth()->check()) {
+            abort(401, 'User not authenticated');
+        }
+
         // Ensure sales can only complete their assigned follow ups
-        if ($followUp->assigned_to !== auth()->id()) {
-            abort(403);
+        $currentUserId = auth()->id();
+        $assignedTo = $followUp->assigned_to;
+
+        if ($assignedTo != $currentUserId) {
+            abort(403, 'You are not authorized to complete this follow up.');
         }
 
         $validated = $request->validate([
-            'resolution' => 'required|string',
-            'notes' => 'nullable|string',
+            'resolution' => 'nullable|string',
+            'notes' => 'required|string|min:10',
         ]);
 
         $followUp->update([
             'status' => 'completed',
-            'resolution' => $validated['resolution'],
-            'notes' => $validated['notes'] ?? $followUp->notes,
+            'resolution' => $validated['resolution'] ?? 'Follow up selesai dikerjakan',
+            'notes' => $validated['notes'],
             'completed_at' => now(),
         ]);
 
-        return response()->json([
-            'message' => 'Follow up berhasil diselesaikan!',
-            'followUp' => $followUp->fresh(),
-        ]);
+        return redirect()->route('sales.follow-ups.index')->with('success', 'Follow up berhasil diselesaikan!');
     }
 
     /**
@@ -95,8 +108,16 @@ class CustomerFollowUpController extends Controller
     public function updateNotes(Request $request, CustomerFollowUp $followUp)
     {
         // Ensure sales can only update their assigned follow ups
-        if ($followUp->assigned_to !== auth()->id()) {
-            abort(403);
+        if (!auth()->check()) {
+            abort(401, 'User not authenticated');
+        }
+
+        // Ensure sales can only complete their assigned follow ups
+        $currentUserId = auth()->id();
+        $assignedTo = $followUp->assigned_to;
+
+        if ($assignedTo != $currentUserId) {
+            abort(403, 'You are not authorized to complete this follow up.');
         }
 
         $validated = $request->validate([

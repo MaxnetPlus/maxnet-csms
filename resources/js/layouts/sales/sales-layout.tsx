@@ -7,7 +7,7 @@ import { type PropsWithChildren } from 'react';
 
 export default function SalesLayout({ children, breadcrumbs = [] }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     return (
-        <AppShell variant="sidebar" className="min-h-screen bg-background">
+        <AppShell variant="sidebar">
             <SalesSidebar />
             <AppContent variant="sidebar" className="overflow-x-hidden">
                 <SalesHeader breadcrumbs={breadcrumbs} />

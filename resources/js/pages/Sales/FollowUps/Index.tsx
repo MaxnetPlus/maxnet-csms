@@ -7,6 +7,7 @@ import SalesLayout from '@/layouts/sales-layout';
 import { Link, router } from '@inertiajs/react';
 import { Calendar, CheckSquare, Mail, Phone, Search, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import ComplateModal from './ComplateModal';
 
 interface FollowUpsIndexProps {
     followUps: {
@@ -20,6 +21,8 @@ interface FollowUpsIndexProps {
         status?: string;
         priority?: string;
         search?: string;
+        date_from?: string;
+        date_to?: string;
     };
 }
 
@@ -27,6 +30,12 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
     const [search, setSearch] = useState(filters.search || '');
     const [status, setStatus] = useState(filters.status || 'all');
     const [priority, setPriority] = useState(filters.priority || 'all');
+    const [dateFrom, setDateFrom] = useState(filters.date_from || new Date().toISOString().split('T')[0]);
+    const [dateTo, setDateTo] = useState(filters.date_to || new Date().toISOString().split('T')[0]);
+
+    // Modal state
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedFollowUp, setSelectedFollowUp] = useState<{ id: number; customerName: string } | null>(null);
 
     // Debounced search
     useEffect(() => {
@@ -37,13 +46,15 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                     search: search || undefined,
                     status: status !== 'all' ? status : undefined,
                     priority: priority !== 'all' ? priority : undefined,
+                    date_from: dateFrom || undefined,
+                    date_to: dateTo || undefined,
                 },
                 { preserveState: true, replace: true },
             );
         }, 300);
 
         return () => clearTimeout(timeoutId);
-    }, [search, status, priority]);
+    }, [search, status, priority, dateFrom, dateTo]);
 
     const getStatusBadge = (status: string) => {
         const variants = {
@@ -87,9 +98,14 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
         return labels[priority as keyof typeof labels] || priority;
     };
 
-    const handleComplete = async (followUpId: number) => {
-        // This would open a modal or redirect to complete page
-        router.visit(`/sales/follow-ups/${followUpId}`);
+    const handleComplete = (followUpId: number, customerName: string) => {
+        setSelectedFollowUp({ id: followUpId, customerName });
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setSelectedFollowUp(null);
     };
 
     return (
@@ -104,7 +120,11 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">Follow Up Customer</h1>
-                        <p className="text-muted-foreground">Total {followUps.total} follow up yang ditugaskan</p>
+                        <p className="text-muted-foreground">
+                            {dateFrom === dateTo && dateFrom === new Date().toISOString().split('T')[0]
+                                ? `Follow up hari ini - Total ${followUps.total} follow up`
+                                : `Total ${followUps.total} follow up yang ditugaskan`}
+                        </p>
                     </div>
                 </div>
 
@@ -117,7 +137,64 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="flex flex-col gap-4 lg:flex-row">
+                        <div className="flex flex-col gap-4">
+                            {/* Quick Date Actions */}
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    variant={
+                                        dateFrom === new Date().toISOString().split('T')[0] && dateTo === new Date().toISOString().split('T')[0]
+                                            ? 'default'
+                                            : 'outline'
+                                    }
+                                    size="sm"
+                                    onClick={() => {
+                                        const today = new Date().toISOString().split('T')[0];
+                                        setDateFrom(today);
+                                        setDateTo(today);
+                                    }}
+                                >
+                                    Hari Ini
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const yesterday = new Date();
+                                        yesterday.setDate(yesterday.getDate() - 1);
+                                        const yesterdayStr = yesterday.toISOString().split('T')[0];
+                                        setDateFrom(yesterdayStr);
+                                        setDateTo(yesterdayStr);
+                                    }}
+                                >
+                                    Kemarin
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const today = new Date();
+                                        const weekStart = new Date(today);
+                                        weekStart.setDate(today.getDate() - today.getDay());
+                                        setDateFrom(weekStart.toISOString().split('T')[0]);
+                                        setDateTo(today.toISOString().split('T')[0]);
+                                    }}
+                                >
+                                    Minggu Ini
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                        const today = new Date();
+                                        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+                                        setDateFrom(monthStart.toISOString().split('T')[0]);
+                                        setDateTo(today.toISOString().split('T')[0]);
+                                    }}
+                                >
+                                    Bulan Ini
+                                </Button>
+                            </div>
+
                             {/* Search */}
                             <div className="flex-1">
                                 <div className="relative">
@@ -131,35 +208,49 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                                 </div>
                             </div>
 
-                            {/* Status Filter */}
-                            <div className="w-full lg:w-48">
-                                <Select value={status} onValueChange={setStatus}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Semua Status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Semua Status</SelectItem>
-                                        <SelectItem value="pending">Pending</SelectItem>
-                                        <SelectItem value="in_progress">Sedang Dikerjakan</SelectItem>
-                                        <SelectItem value="completed">Selesai</SelectItem>
-                                        <SelectItem value="cancelled">Dibatalkan</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            {/* Date Filters */}
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium">Dari Tanggal</label>
+                                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                                </div>
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium">Sampai Tanggal</label>
+                                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                                </div>
 
-                            {/* Priority Filter */}
-                            <div className="w-full lg:w-48">
-                                <Select value={priority} onValueChange={setPriority}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Semua Prioritas" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Semua Prioritas</SelectItem>
-                                        <SelectItem value="low">Rendah</SelectItem>
-                                        <SelectItem value="medium">Sedang</SelectItem>
-                                        <SelectItem value="high">Tinggi</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                {/* Status Filter */}
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium">Status</label>
+                                    <Select value={status} onValueChange={setStatus}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Semua Status" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Status</SelectItem>
+                                            <SelectItem value="pending">Pending</SelectItem>
+                                            <SelectItem value="in_progress">Sedang Dikerjakan</SelectItem>
+                                            <SelectItem value="completed">Selesai</SelectItem>
+                                            <SelectItem value="cancelled">Dibatalkan</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Priority Filter */}
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium">Prioritas</label>
+                                    <Select value={priority} onValueChange={setPriority}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Semua Prioritas" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Semua Prioritas</SelectItem>
+                                            <SelectItem value="low">Rendah</SelectItem>
+                                            <SelectItem value="medium">Sedang</SelectItem>
+                                            <SelectItem value="high">Tinggi</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -243,7 +334,9 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                                             {followUp.status !== 'completed' && followUp.status !== 'cancelled' && (
                                                 <Button
                                                     size="sm"
-                                                    onClick={() => handleComplete(followUp.id)}
+                                                    onClick={() =>
+                                                        handleComplete(followUp.id, followUp.customer?.customer_name || 'Customer Tidak Diketahui')
+                                                    }
                                                     className="bg-primary hover:bg-primary/90"
                                                 >
                                                     <CheckSquare className="mr-1 h-4 w-4" />
@@ -289,8 +382,10 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                                             onClick={() =>
                                                 router.get(`/sales/follow-ups?page=${followUps.current_page - 1}`, {
                                                     search: search || undefined,
-                                                    status: status || undefined,
-                                                    priority: priority || undefined,
+                                                    status: status !== 'all' ? status : undefined,
+                                                    priority: priority !== 'all' ? priority : undefined,
+                                                    date_from: dateFrom || undefined,
+                                                    date_to: dateTo || undefined,
                                                 })
                                             }
                                         >
@@ -304,8 +399,10 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                                             onClick={() =>
                                                 router.get(`/sales/follow-ups?page=${followUps.current_page + 1}`, {
                                                     search: search || undefined,
-                                                    status: status || undefined,
-                                                    priority: priority || undefined,
+                                                    status: status !== 'all' ? status : undefined,
+                                                    priority: priority !== 'all' ? priority : undefined,
+                                                    date_from: dateFrom || undefined,
+                                                    date_to: dateTo || undefined,
                                                 })
                                             }
                                         >
@@ -318,6 +415,16 @@ export default function FollowUpsIndex({ followUps, filters }: FollowUpsIndexPro
                     </Card>
                 )}
             </div>
+
+            {/* Complete Modal */}
+            {selectedFollowUp && (
+                <ComplateModal
+                    isOpen={isModalOpen}
+                    onClose={handleCloseModal}
+                    followUpId={selectedFollowUp.id}
+                    customerName={selectedFollowUp.customerName}
+                />
+            )}
         </SalesLayout>
     );
 }

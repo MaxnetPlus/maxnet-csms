@@ -8,6 +8,12 @@ import CustomerFollowUpList from './CustomerFollowUpList';
 interface User {
     id: number;
     name: string;
+    role: any;
+    roles?: Array<{
+        id: number;
+        name: string;
+        guard_name: string;
+    }>;
 }
 
 interface CustomerFollowUp {

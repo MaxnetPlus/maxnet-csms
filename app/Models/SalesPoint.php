@@ -70,7 +70,7 @@ class SalesPoint extends Model
     public function scopeThisMonth($query)
     {
         return $query->whereMonth('date', now()->month)
-            ->whereYear('date', now()->year);
+                    ->whereYear('date', now()->year);
     }
 
     /**
@@ -79,15 +79,15 @@ class SalesPoint extends Model
     public static function getTotalPoints($salesId, $startDate = null, $endDate = null)
     {
         $query = static::bySales($salesId);
-
+        
         if ($startDate) {
             $query->where('date', '>=', $startDate);
         }
-
+        
         if ($endDate) {
             $query->where('date', '<=', $endDate);
         }
-
+        
         return $query->sum('points_earned');
     }
 
@@ -97,7 +97,7 @@ class SalesPoint extends Model
     public static function getCurrentAccumulation($salesId)
     {
         return static::bySales($salesId)
-            ->latest('date')
-            ->value('accumulated_points') ?? 0;
+                    ->latest('date')
+                    ->value('accumulated_points') ?? 0;
     }
 }

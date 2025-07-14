@@ -24,21 +24,48 @@ class ProspectController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Filter by category
+        if ($request->filled('category_id')) {
+            $query->where('prospect_category_id', $request->category_id);
+        }
+
+        // Filter by date range - default to today if no dates specified
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        } elseif (!$request->filled('date_to')) {
+            // Default to today if no date filters are set
+            $query->whereDate('created_at', now()->toDateString());
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        } elseif ($request->filled('date_from')) {
+            // If only date_from is set, don't add default today filter
+        } else {
+            // Default to today if no date filters are set
+            $query->whereDate('created_at', now()->toDateString());
+        }
+
         // Search
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('customer_name', 'like', "%{$search}%")
                     ->orWhere('customer_email', 'like', "%{$search}%")
-                    ->orWhere('customer_number', 'like', "%{$search}%");
+                    ->orWhere('customer_number', 'like', "%{$search}%")
+                    ->orWhere('address', 'like', "%{$search}%");
             });
         }
 
         $prospects = $query->latest()->paginate(10);
 
+        // Get all categories for filter dropdown
+        $categories = ProspectCategory::active()->orderBy('name')->get();
+
         return Inertia::render('Sales/Prospects/Index', [
             'prospects' => $prospects,
-            'filters' => $request->only(['status', 'search']),
+            'categories' => $categories,
+            'filters' => $request->only(['status', 'search', 'category_id', 'date_from', 'date_to']),
         ]);
     }
 

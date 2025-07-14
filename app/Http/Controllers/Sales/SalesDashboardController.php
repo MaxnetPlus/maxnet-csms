@@ -7,6 +7,7 @@ use App\Models\Prospect;
 use App\Models\SalesPoint;
 use App\Models\SalesTarget;
 use App\Models\CustomerFollowUp;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -14,7 +15,13 @@ class SalesDashboardController extends Controller
 {
     public function index()
     {
+        /** @var User $user */
         $user = auth()->user();
+
+        // Redirect admin users who don't have sales access to admin dashboard
+        if ($user && !$user->hasSalesAccess()) {
+            return redirect()->route('dashboard');
+        }
 
         // Get current target
         $currentTarget = SalesTarget::where('sales_id', $user->id)

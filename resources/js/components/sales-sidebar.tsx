@@ -1,13 +1,33 @@
-import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+} from '@/components/ui/sidebar';
 import { Link, usePage } from '@inertiajs/react';
 import { BarChart3, CheckSquare, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 export function SalesSidebar() {
     const { auth } = usePage().props as any;
+    const page = usePage();
+
+    // Function to check if menu item is active
+    const isActive = (href: string) => {
+        // Exact match for dashboard
+        if (href === '/sales') {
+            return page.url === '/sales' || page.url === '/sales/';
+        }
+        // For other items, check if current URL starts with the href
+        return page.url.startsWith(href);
+    };
 
     // Sales navigation items - mobile-first design
     const salesNavItems = [
@@ -15,16 +35,19 @@ export function SalesSidebar() {
             title: 'Dashboard',
             href: '/sales',
             icon: BarChart3,
+            isActive: isActive('/sales'),
         },
         {
             title: 'Prospek',
             href: '/sales/prospects',
             icon: Users,
+            isActive: isActive('/sales/prospects'),
         },
         {
             title: 'Follow Up',
             href: '/sales/follow-ups',
             icon: CheckSquare,
+            isActive: isActive('/sales/follow-ups'),
         },
     ];
 
@@ -47,7 +70,21 @@ export function SalesSidebar() {
             </SidebarHeader>
 
             <SidebarContent className="bg-card/30">
-                <NavMain items={salesNavItems} groups={[]} />
+                <SidebarGroup>
+                    <SidebarGroupLabel>Platform</SidebarGroupLabel>
+                    <SidebarMenu>
+                        {salesNavItems.map((item) => (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton asChild isActive={item.isActive} tooltip={{ children: item.title }}>
+                                    <Link href={item.href} prefetch>
+                                        <item.icon />
+                                        <span>{item.title}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ))}
+                    </SidebarMenu>
+                </SidebarGroup>
             </SidebarContent>
 
             <SidebarFooter className="bg-card/50">

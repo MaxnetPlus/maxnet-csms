@@ -1,16 +1,23 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Notification, useNotification } from '@/components/ui/notification';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Link, router } from '@inertiajs/react';
-import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Edit, Eye, Filter, Loader2, Search, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, ChevronRight, Clock, Edit, Eye, Filter, Loader2, Search, Trash2, UserPlus, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface User {
     id: number;
     name: string;
+    roles?: Array<{
+        id: number;
+        name: string;
+        guard_name: string;
+    }>;
 }
 
 interface Customer {
@@ -89,6 +96,20 @@ const priorityConfig = {
 } as const;
 
 export default function CustomerFollowUpList({ initialFilters = {}, users }: CustomerFollowUpListProps) {
+    // Get today's date in YYYY-MM-DD format
+    const getTodayDate = () => {
+        return new Date().toISOString().split('T')[0];
+    };
+
+    // Filter to only show sales users
+    const salesUsers = users.filter((user) => {
+        if (!user.roles || user.roles.length === 0) return false;
+        return user.roles.some((role) => {
+            const roleName = role.name.toLowerCase();
+            return roleName.includes('sales') || roleName.includes('sale');
+        });
+    });
+
     const [tableData, setTableData] = useState<PaginationData | null>(null);
     const [loading, setLoading] = useState(false);
     const [filters, setFilters] = useState({
@@ -96,8 +117,8 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
         status: initialFilters.status || 'all',
         priority: initialFilters.priority || 'all',
         assigned_to: initialFilters.assigned_to || 'all',
-        date_from: initialFilters.date_from || '',
-        date_to: initialFilters.date_to || '',
+        date_from: initialFilters.date_from || getTodayDate(),
+        date_to: initialFilters.date_to || getTodayDate(),
         sort: initialFilters.sort || 'created_at',
         direction: initialFilters.direction || 'desc',
     });
@@ -105,6 +126,15 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
     const [perPage, setPerPage] = useState(15);
     const [showFilters, setShowFilters] = useState(false);
     const [lastFetchParams, setLastFetchParams] = useState<string>('');
+
+    // Assign modal state
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [selectedFollowUp, setSelectedFollowUp] = useState<CustomerFollowUp | null>(null);
+    const [selectedUserId, setSelectedUserId] = useState<string>('unassigned');
+    const [assignLoading, setAssignLoading] = useState(false);
+
+    // Use the notification hook
+    const { notification, showNotification, hideNotification } = useNotification();
 
     // Debounced search function
     const debounce = (func: Function, delay: number) => {
@@ -207,13 +237,79 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
             status: 'all',
             priority: 'all',
             assigned_to: 'all',
-            date_from: '',
-            date_to: '',
+            date_from: getTodayDate(),
+            date_to: getTodayDate(),
             sort: 'created_at',
             direction: 'desc',
         };
         setFilters(clearedFilters);
         setCurrentPage(1);
+    };
+
+    const handleAssign = (followUp: CustomerFollowUp) => {
+        setSelectedFollowUp(followUp);
+        setSelectedUserId(followUp.assignee?.id.toString() || 'unassigned');
+        setShowAssignModal(true);
+    };
+
+    const handleAssignSubmit = async () => {
+        if (!selectedFollowUp) return;
+
+        setAssignLoading(true);
+
+        try {
+            const response = await fetch(`/admin/follow-ups/${selectedFollowUp.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    customer_id: selectedFollowUp.customer_id,
+                    subscription_id: selectedFollowUp.subscription_id || '',
+                    priority: selectedFollowUp.priority,
+                    status: selectedFollowUp.status,
+                    description: selectedFollowUp.description,
+                    notes: selectedFollowUp.notes || '',
+                    resolution: selectedFollowUp.resolution || '',
+                    assigned_to: selectedUserId === 'unassigned' ? '' : selectedUserId,
+                }),
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                setShowAssignModal(false);
+                setSelectedFollowUp(null);
+                setSelectedUserId('unassigned');
+                // Refresh the table data
+                fetchTableData(currentPage, filters, true);
+
+                // Show success notification
+                const assignedUserName =
+                    selectedUserId === 'unassigned' ? 'Unassigned' : salesUsers.find((user) => user.id.toString() === selectedUserId)?.name || 'User';
+
+                showNotification(
+                    'success',
+                    'Assignment Successful!',
+                    `Follow up #${selectedFollowUp.id} has been successfully assigned to ${assignedUserName}.`,
+                );
+            } else {
+                const errorText = await response.text();
+                console.error('Failed to assign user:', response.status, errorText);
+                showNotification('error', 'Assignment Failed', 'An error occurred while assigning the user. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error assigning user:', error);
+            showNotification(
+                'error',
+                'Network Error',
+                'A network error occurred while assigning the user. Please check your connection and try again.',
+            );
+        } finally {
+            setAssignLoading(false);
+        }
     };
 
     const handleDelete = async (id: number) => {
@@ -225,10 +321,13 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
             onSuccess: () => {
                 // Refresh the table data
                 fetchTableData(currentPage, filters, true);
+
+                // Show success notification
+                showNotification('success', 'Follow Up Deleted', `Follow up #${id} has been successfully deleted.`);
             },
             onError: (errors) => {
                 console.error('Error deleting follow up:', errors);
-                alert('An error occurred while deleting the follow up.');
+                showNotification('error', 'Delete Failed', 'An error occurred while deleting the follow up. Please try again.');
             },
         });
     };
@@ -322,6 +421,15 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
             ),
         },
         {
+            header: 'Notes',
+            className: 'min-w-[200px]',
+            render: (data: CustomerFollowUp) => (
+                <div className="max-w-[200px] truncate text-sm" title={data.notes}>
+                    {data.notes || <span className="text-muted-foreground">No notes</span>}
+                </div>
+            ),
+        },
+        {
             header: 'Created',
             className: 'min-w-[120px]',
             sortable: true,
@@ -355,7 +463,7 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
         },
         {
             header: 'Actions',
-            className: 'min-w-[160px]',
+            className: 'min-w-[200px]',
             render: (data: CustomerFollowUp) => (
                 <div className="flex gap-2">
                     <Link href={`/admin/follow-ups/${data.id}`}>
@@ -363,6 +471,15 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
                             <Eye className="h-4 w-4" />
                         </Button>
                     </Link>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 w-8 p-0 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        title="Quick Assign"
+                        onClick={() => handleAssign(data)}
+                    >
+                        <UserPlus className="h-4 w-4" />
+                    </Button>
                     <Link href={`/admin/follow-ups/${data.id}/edit`}>
                         <Button size="sm" variant="outline" className="h-8 w-8 p-0" title="Edit Follow Up">
                             <Edit className="h-4 w-4" />
@@ -384,6 +501,18 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
 
     return (
         <div className="space-y-4">
+            {/* Notification Component */}
+            <Notification
+                show={notification.show}
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                onClose={hideNotification}
+                autoHide={true}
+                duration={5000}
+                position="top-right"
+            />
+
             {/* Search and Filter Bar */}
             <Card>
                 <CardHeader className="pb-3">
@@ -468,20 +597,27 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium">Assigned To</label>
+                                <label className="text-sm font-medium">Assigned To (Sales)</label>
                                 <Select
                                     value={filters.assigned_to}
                                     onValueChange={(value) => setFilters((prev) => ({ ...prev, assigned_to: value }))}
                                 >
                                     <SelectTrigger>
-                                        <SelectValue placeholder="All Users" />
+                                        <SelectValue placeholder="All Sales Users" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="all">All Users</SelectItem>
+                                        <SelectItem value="all">All Sales Users</SelectItem>
                                         <SelectItem value="unassigned">Unassigned</SelectItem>
-                                        {users.map((user) => (
+                                        {salesUsers.map((user) => (
                                             <SelectItem key={user.id} value={user.id.toString()}>
-                                                {user.name}
+                                                <div className="flex items-center gap-2">
+                                                    <span>{user.name}</span>
+                                                    {user.roles && user.roles.length > 0 && (
+                                                        <span className="text-xs text-muted-foreground">
+                                                            ({user.roles.map((role) => role.name).join(', ')})
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -619,6 +755,127 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
                     </Button>
                 </div>
             )}
+
+            {/* Assign Modal */}
+            <Dialog open={showAssignModal} onOpenChange={setShowAssignModal}>
+                <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader className="pb-4">
+                        <DialogTitle className="text-lg font-semibold">Quick Assign Follow Up</DialogTitle>
+                        <DialogDescription className="text-sm text-muted-foreground">
+                            Assign follow up #{selectedFollowUp?.id} to a sales user for efficient task management
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                        {/* Follow Up Details Card */}
+                        {selectedFollowUp && (
+                            <div className="rounded-lg border bg-card p-4">
+                                <h4 className="mb-3 text-sm font-semibold text-foreground">Follow Up Details</h4>
+                                <div className="space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-muted-foreground">Customer:</span>
+                                        <span className="text-sm font-medium">{selectedFollowUp.customer?.customer_name}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-muted-foreground">Customer ID:</span>
+                                        <span className="font-mono text-sm">{selectedFollowUp.customer_id}</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-muted-foreground">Priority:</span>
+                                        <Badge className={priorityConfig[selectedFollowUp.priority as keyof typeof priorityConfig]?.className}>
+                                            {priorityConfig[selectedFollowUp.priority as keyof typeof priorityConfig]?.label}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm text-muted-foreground">Status:</span>
+                                        <Badge className={statusConfig[selectedFollowUp.status as keyof typeof statusConfig]?.className}>
+                                            {statusConfig[selectedFollowUp.status as keyof typeof statusConfig]?.label}
+                                        </Badge>
+                                    </div>
+
+                                    {selectedFollowUp.description && (
+                                        <div className="border-t pt-2">
+                                            <span className="mb-1 block text-sm text-muted-foreground">Description:</span>
+                                            <p className="rounded bg-muted/50 p-2 text-sm text-wrap text-foreground">
+                                                {selectedFollowUp.description}
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {selectedFollowUp.assignee && (
+                                        <div className="flex items-center justify-between border-t pt-2">
+                                            <span className="text-sm text-muted-foreground">Currently Assigned:</span>
+                                            <span className="text-sm font-medium text-blue-600">{selectedFollowUp.assignee.name}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Assignment Selection */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Assign to Sales User</label>
+                            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select a sales user..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="unassigned" className="text-muted-foreground">
+                                        <div className="flex items-center gap-2">
+                                            <X className="h-4 w-4" />
+                                            Unassign (No user)
+                                        </div>
+                                    </SelectItem>
+                                    {salesUsers.length > 0 ? (
+                                        salesUsers.map((user) => (
+                                            <SelectItem key={user.id} value={user.id.toString()}>
+                                                <div className="flex items-center gap-2">
+                                                    <UserPlus className="h-4 w-4" />
+                                                    <div>
+                                                        <div className="font-medium">{user.name}</div>
+                                                    </div>
+                                                </div>
+                                            </SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value="no-sales" disabled className="text-muted-foreground">
+                                            No sales users available
+                                        </SelectItem>
+                                    )}
+                                </SelectContent>
+                            </Select>
+                            {salesUsers.length === 0 && (
+                                <p className="rounded bg-amber-50 p-2 text-xs text-amber-600">
+                                    ⚠️ No users with sales roles found. Please ensure users have proper role assignments.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Modal Actions */}
+                    <div className="flex justify-end gap-3 border-t pt-6">
+                        <Button variant="outline" onClick={() => setShowAssignModal(false)} disabled={assignLoading}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleAssignSubmit} disabled={assignLoading || salesUsers.length === 0} className="min-w-[100px]">
+                            {assignLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Assigning...
+                                </>
+                            ) : (
+                                <>
+                                    <UserPlus className="mr-2 h-4 w-4" />
+                                    Assign
+                                </>
+                            )}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

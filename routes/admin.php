@@ -17,10 +17,17 @@ use Illuminate\Support\Facades\Route;
 // Admin routes with authentication and permission middleware
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
 
+    // admin root url redirect to REportController
+    Route::get('/', function () {
+        return redirect()->route('admin.reports.index');
+    })->name('root');
+
     // User management routes
     Route::middleware('can:view-users')->group(function () {
         Route::get('users', [UserController::class, 'index'])->name('users.index');
     });
+
+
 
     Route::middleware('can:manage-users')->group(function () {
         // Move create route before the show route to avoid "create" being treated as a user ID
@@ -122,6 +129,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('/{followUp}', [CustomerFollowUpController::class, 'show'])->name('show');
         Route::get('/{followUp}/edit', [CustomerFollowUpController::class, 'edit'])->name('edit');
         Route::put('/{followUp}', [CustomerFollowUpController::class, 'update'])->name('update');
+        Route::patch('/{followUp}', [CustomerFollowUpController::class, 'update'])->name('patch');
         Route::delete('/{followUp}', [CustomerFollowUpController::class, 'destroy'])->name('destroy');
         Route::get('/export/excel', [CustomerFollowUpController::class, 'export'])->name('export');
         Route::get('/create-from-subscription', [CustomerFollowUpController::class, 'createFromSubscription'])->name('create-from-subscription');
