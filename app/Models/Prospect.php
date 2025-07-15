@@ -18,6 +18,7 @@ class Prospect extends Model
         'customer_email',
         'customer_number',
         'address',
+        'sales_location',
         'latitude',
         'longitude',
         'status',

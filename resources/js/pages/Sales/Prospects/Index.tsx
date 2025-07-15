@@ -269,7 +269,8 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                                         🏷️ {prospect.category.name} ({prospect.category.points} poin)
                                                     </p>
                                                 )}
-                                                {prospect.address && <p className="truncate">📍 {prospect.address}</p>}
+                                                {prospect.address && <p className="truncate">📍 Customer: {prospect.address}</p>}
+                                                {prospect.sales_location && <p className="truncate">📍 Sales: {prospect.sales_location}</p>}
                                             </div>
 
                                             <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">

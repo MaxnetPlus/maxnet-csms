@@ -153,6 +153,6 @@ class User extends Authenticatable
      */
     public function hasSalesAccess(): bool
     {
-        return $this->hasRole('sales') || $this->hasPermissionTo('access-sales');
+        return $this->hasRole('sales');
     }
 }

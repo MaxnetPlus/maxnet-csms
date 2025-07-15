@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import SalesLayout from '@/layouts/sales-layout';
 import { Link, useForm } from '@inertiajs/react';
-import { ArrowLeft, MapPin, Save, Target } from 'lucide-react';
+import { ArrowLeft, MapPin, RotateCcw, Save, Target } from 'lucide-react';
 import { useState } from 'react';
 
 interface CreateProspectProps {
@@ -18,6 +18,7 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState<string>('');
     const [loadingLocation, setLoadingLocation] = useState(false);
+    const [salesLocation, setSalesLocation] = useState<string>('');
 
     const { data, setData, post, processing, errors } = useForm({
         prospect_category_id: '',
@@ -25,6 +26,7 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
         customer_email: '',
         customer_number: '',
         address: '',
+        sales_location: '',
         latitude: '',
         longitude: '',
         notes: '',
@@ -45,14 +47,36 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
         setLocationError('');
 
         navigator.geolocation.getCurrentPosition(
-            (position) => {
+            async (position) => {
                 const { latitude, longitude } = position.coords;
                 setLocation({ lat: latitude, lng: longitude });
-                setData({
-                    ...data,
-                    latitude: latitude.toString(),
-                    longitude: longitude.toString(),
-                });
+
+                // Get address from coordinates using reverse geocoding
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+                    const addressData = await response.json();
+                    const address = addressData.display_name || `${latitude}, ${longitude}`;
+                    setSalesLocation(address);
+
+                    setData((prevData) => ({
+                        ...prevData,
+                        latitude: latitude.toString(),
+                        longitude: longitude.toString(),
+                        sales_location: address,
+                    }));
+                } catch (error) {
+                    console.error('Error getting address:', error);
+                    const fallbackAddress = `${latitude}, ${longitude}`;
+                    setSalesLocation(fallbackAddress);
+
+                    setData((prevData) => ({
+                        ...prevData,
+                        latitude: latitude.toString(),
+                        longitude: longitude.toString(),
+                        sales_location: fallbackAddress,
+                    }));
+                }
+
                 setLoadingLocation(false);
             },
             (error) => {
@@ -78,6 +102,10 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                 maximumAge: 60000,
             },
         );
+    };
+
+    const refreshLocation = () => {
+        getCurrentLocation();
     };
 
     return (
@@ -225,9 +253,9 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
                                 <MapPin className="h-5 w-5" />
-                                Lokasi (Opsional)
+                                Lokasi Sales & Koordinat
                             </CardTitle>
-                            <CardDescription>Ambil koordinat lokasi customer untuk pemetaan</CardDescription>
+                            <CardDescription>Ambil lokasi sales saat ini dan koordinat untuk pemetaan</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="flex flex-col gap-4 sm:flex-row">
@@ -241,6 +269,19 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                                     <MapPin className="mr-2 h-4 w-4" />
                                     {loadingLocation ? 'Mengambil Lokasi...' : 'Ambil Lokasi Saat Ini'}
                                 </Button>
+
+                                {location && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={refreshLocation}
+                                        disabled={loadingLocation}
+                                        className="w-full sm:w-auto"
+                                    >
+                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                        Refresh Lokasi
+                                    </Button>
+                                )}
                             </div>
 
                             {locationError && (
@@ -249,9 +290,25 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                                 </div>
                             )}
 
+                            {/* Sales Location Display */}
+                            {salesLocation && (
+                                <div>
+                                    <Label htmlFor="sales_location">Lokasi Sales Saat Ini</Label>
+                                    <Textarea
+                                        id="sales_location"
+                                        value={data.sales_location}
+                                        onChange={(e) => setData('sales_location', e.target.value)}
+                                        placeholder="Lokasi sales akan terisi otomatis..."
+                                        rows={3}
+                                        className="mt-1"
+                                    />
+                                    {errors.sales_location && <p className="mt-1 text-sm text-destructive">{errors.sales_location}</p>}
+                                </div>
+                            )}
+
                             {location && (
                                 <div className="rounded-lg border border-primary/20 bg-primary/10 p-3">
-                                    <p className="mb-1 text-sm font-medium text-primary">Lokasi Berhasil Diambil</p>
+                                    <p className="mb-1 text-sm font-medium text-primary">Koordinat Berhasil Diambil</p>
                                     <p className="text-sm text-muted-foreground">
                                         Latitude: {location.lat.toFixed(6)}, Longitude: {location.lng.toFixed(6)}
                                     </p>

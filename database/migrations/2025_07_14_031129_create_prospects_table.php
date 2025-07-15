@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('customer_email')->nullable();
             $table->string('customer_number')->nullable();
             $table->text('address')->nullable();
+            $table->text('sales_location')->nullable();
             $table->decimal('latitude', 10, 8)->nullable();
             $table->decimal('longitude', 11, 8)->nullable();
             $table->enum('status', ['new', 'contacted', 'qualified', 'converted', 'rejected'])->default('new');

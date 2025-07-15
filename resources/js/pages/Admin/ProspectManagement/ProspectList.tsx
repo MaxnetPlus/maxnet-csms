@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Notification, useNotification } from '@/components/ui/notification';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, router } from '@inertiajs/react';
 import { CheckCircle, ChevronLeft, ChevronRight, Eye, Filter, Search, Trash2, User, XCircle } from 'lucide-react';
@@ -26,6 +27,7 @@ interface Prospect {
     customer_email: string;
     customer_number: string;
     address: string;
+    sales_location?: string;
     latitude?: number;
     longitude?: number;
     notes?: string;
@@ -80,6 +82,7 @@ const statusConfig = {
 export default function ProspectList({ initialFilters = {}, categories, salesUsers }: ProspectListProps) {
     const [tableData, setTableData] = useState<PaginationData | null>(null);
     const [loading, setLoading] = useState(false);
+    const { notification, showNotification, hideNotification } = useNotification();
     const [filters, setFilters] = useState({
         search: initialFilters.search || '',
         status: initialFilters.status || 'all',
@@ -214,10 +217,11 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
             onSuccess: () => {
                 // Refresh the table data
                 fetchTableData(currentPage, filters, true);
+                showNotification('success', 'Prospect Deleted', 'The prospect has been successfully deleted.');
             },
             onError: (errors) => {
                 console.error('Error deleting prospect:', errors);
-                alert('An error occurred while deleting the prospect.');
+                showNotification('error', 'Delete Failed', 'An error occurred while deleting the prospect.');
             },
         });
     };
@@ -233,6 +237,15 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                     onSuccess: () => {
                         // Refresh the table data
                         fetchTableData(currentPage, filters, true);
+                        showNotification(
+                            'success',
+                            'Status Updated',
+                            `Prospect has been ${newStatus === 'approved' ? 'approved' : 'rejected'} successfully.`,
+                        );
+                    },
+                    onError: (errors) => {
+                        console.error('Error updating status:', errors);
+                        showNotification('error', 'Update Failed', 'An error occurred while updating the prospect status.');
                     },
                 },
             );
@@ -279,8 +292,17 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
             header: 'Address',
             className: 'min-w-[180px]',
             render: (data: Prospect) => (
-                <div className="max-w-[180px] truncate text-sm" title={data.address}>
-                    {data.address}
+                <div className="max-w-[180px] space-y-1 text-sm">
+                    {data.address && (
+                        <div className="truncate" title={data.address}>
+                            👤 {data.address}
+                        </div>
+                    )}
+                    {data.sales_location && (
+                        <div className="truncate text-muted-foreground" title={data.sales_location}>
+                            👨‍💼 {data.sales_location}
+                        </div>
+                    )}
                     {data.latitude && data.longitude && (
                         <div className="text-xs text-muted-foreground">
                             📍 {Number(data.latitude).toFixed(6)}, {Number(data.longitude).toFixed(6)}
@@ -580,6 +602,18 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                     </Button>
                 </div>
             )}
+
+            {/* Notification */}
+            <Notification
+                show={notification.show}
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                onClose={hideNotification}
+                autoHide={true}
+                duration={5000}
+                position="top-right"
+            />
         </div>
     );
 }

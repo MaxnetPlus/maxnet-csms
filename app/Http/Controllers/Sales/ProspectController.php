@@ -92,6 +92,7 @@ class ProspectController extends Controller
             'customer_email' => 'nullable|email|max:255',
             'customer_number' => 'nullable|string|max:20',
             'address' => 'nullable|string',
+            'sales_location' => 'nullable|string',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
             'notes' => 'nullable|string',

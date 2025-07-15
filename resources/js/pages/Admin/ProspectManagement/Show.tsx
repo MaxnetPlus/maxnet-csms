@@ -1,9 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Notification, useNotification } from '@/components/ui/notification';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { Link, router } from '@inertiajs/react';
-import { ArrowLeft, Award, Calendar, CheckCircle, Clock, MapIcon, MapPin, Phone, StickyNote, User, XCircle } from 'lucide-react';
+import { ArrowLeft, Award, Calendar, CheckCircle, Clock, Edit, MapIcon, MapPin, Phone, StickyNote, User, XCircle } from 'lucide-react';
+import { useState } from 'react';
 
 interface Prospect {
     id: number;
@@ -18,6 +21,7 @@ interface Prospect {
     points?: number; // From the getPointsAttribute accessor
     created_at: string;
     updated_at: string;
+    sales_location?: string; // New field for sales location
     sales: {
         id: number;
         name: string;
@@ -37,58 +41,166 @@ interface ShowProspectProps {
 }
 
 export default function ShowProspect({ prospect }: ShowProspectProps) {
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+    const { notification, showNotification, hideNotification } = useNotification();
+
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'new':
                 return (
-                    <Badge variant="secondary">
-                        <Clock className="mr-2 h-4 w-4" />
+                    <Badge variant="secondary" className="px-4 py-2 text-base font-medium">
+                        <Clock className="mr-2 h-5 w-5" />
                         Baru
                     </Badge>
                 );
             case 'contacted':
                 return (
-                    <Badge variant="outline">
-                        <CheckCircle className="mr-2 h-4 w-4" />
+                    <Badge variant="outline" className="px-4 py-2 text-base font-medium">
+                        <CheckCircle className="mr-2 h-5 w-5" />
                         Dihubungi
                     </Badge>
                 );
             case 'qualified':
                 return (
-                    <Badge variant="default" className="bg-green-500">
-                        <CheckCircle className="mr-2 h-4 w-4" />
+                    <Badge variant="default" className="bg-green-500 px-4 py-2 text-base font-medium hover:bg-green-600">
+                        <CheckCircle className="mr-2 h-5 w-5" />
                         Terkualifikasi
                     </Badge>
                 );
             case 'converted':
                 return (
-                    <Badge variant="default" className="bg-blue-500">
-                        <CheckCircle className="mr-2 h-4 w-4" />
+                    <Badge variant="default" className="bg-blue-500 px-4 py-2 text-base font-medium hover:bg-blue-600">
+                        <CheckCircle className="mr-2 h-5 w-5" />
                         Terkonversi
                     </Badge>
                 );
             case 'rejected':
                 return (
-                    <Badge variant="destructive">
-                        <XCircle className="mr-2 h-4 w-4" />
+                    <Badge variant="destructive" className="px-4 py-2 text-base font-medium">
+                        <XCircle className="mr-2 h-5 w-5" />
                         Ditolak
                     </Badge>
                 );
             default:
                 return (
-                    <Badge variant="secondary">
-                        <Clock className="mr-2 h-4 w-4" />
+                    <Badge variant="secondary" className="px-4 py-2 text-base font-medium">
+                        <Clock className="mr-2 h-5 w-5" />
                         Pending
                     </Badge>
                 );
         }
     };
 
-    const handleStatusChange = (newStatus: 'approved' | 'rejected') => {
-        if (confirm(`Apakah Anda yakin ingin ${newStatus === 'approved' ? 'menyetujui' : 'menolak'} prospek ini?`)) {
-            router.patch(`/admin/prospect-management/${prospect.id}/status`, {
-                status: newStatus === 'approved' ? 'qualified' : 'rejected',
-            });
+    const getStatusDisplay = (status: string) => {
+        switch (status) {
+            case 'new':
+                return {
+                    text: 'Baru',
+                    icon: <Clock className="h-5 w-5" />,
+                    color: 'text-gray-600',
+                    bgColor: 'bg-gray-100',
+                };
+            case 'contacted':
+                return {
+                    text: 'Dihubungi',
+                    icon: <CheckCircle className="h-5 w-5" />,
+                    color: 'text-blue-600',
+                    bgColor: 'bg-blue-100',
+                };
+            case 'qualified':
+                return {
+                    text: 'Terkualifikasi',
+                    icon: <CheckCircle className="h-5 w-5" />,
+                    color: 'text-green-600',
+                    bgColor: 'bg-green-100',
+                };
+            case 'converted':
+                return {
+                    text: 'Terkonversi',
+                    icon: <CheckCircle className="h-5 w-5" />,
+                    color: 'text-blue-600',
+                    bgColor: 'bg-blue-100',
+                };
+            case 'rejected':
+                return {
+                    text: 'Ditolak',
+                    icon: <XCircle className="h-5 w-5" />,
+                    color: 'text-red-600',
+                    bgColor: 'bg-red-100',
+                };
+            default:
+                return {
+                    text: 'Pending',
+                    icon: <Clock className="h-5 w-5" />,
+                    color: 'text-gray-600',
+                    bgColor: 'bg-gray-100',
+                };
+        }
+    };
+
+    const handleStatusChange = (newStatus: 'new' | 'contacted' | 'qualified' | 'converted' | 'rejected') => {
+        const statusLabels = {
+            new: 'Baru',
+            contacted: 'Dihubungi',
+            qualified: 'Terkualifikasi',
+            converted: 'Terkonversi',
+            rejected: 'Ditolak',
+        };
+
+        if (confirm(`Apakah Anda yakin ingin mengubah status prospek menjadi "${statusLabels[newStatus]}"?`)) {
+            setIsUpdatingStatus(true);
+
+            router.patch(
+                `/admin/prospect-management/${prospect.id}/status`,
+                {
+                    status: newStatus,
+                },
+                {
+                    onSuccess: () => {
+                        setIsUpdatingStatus(false);
+                        showNotification('success', 'Status Berhasil Diubah', `Status prospek berhasil diubah menjadi "${statusLabels[newStatus]}"`);
+                    },
+                    onError: (errors) => {
+                        setIsUpdatingStatus(false);
+                        console.error('Error updating status:', errors);
+                        showNotification('error', 'Gagal Mengubah Status', 'Terjadi kesalahan saat mengubah status prospek');
+                    },
+                },
+            );
+        }
+    };
+
+    const handleQuickStatusChange = (newStatus: 'qualified' | 'rejected') => {
+        const statusLabels = {
+            qualified: 'Terkualifikasi',
+            rejected: 'Ditolak',
+        };
+        const action = newStatus === 'qualified' ? 'menyetujui' : 'menolak';
+
+        if (confirm(`Apakah Anda yakin ingin ${action} prospek ini?`)) {
+            setIsUpdatingStatus(true);
+
+            router.patch(
+                `/admin/prospect-management/${prospect.id}/status`,
+                {
+                    status: newStatus,
+                },
+                {
+                    onSuccess: () => {
+                        setIsUpdatingStatus(false);
+                        showNotification(
+                            'success',
+                            'Status Berhasil Diubah',
+                            `Prospek berhasil ${action === 'menyetujui' ? 'disetujui' : 'ditolak'}`,
+                        );
+                    },
+                    onError: (errors) => {
+                        setIsUpdatingStatus(false);
+                        console.error('Error updating status:', errors);
+                        showNotification('error', 'Gagal Mengubah Status', 'Terjadi kesalahan saat mengubah status prospek');
+                    },
+                },
+            );
         }
     };
 
@@ -123,19 +235,37 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                         </div>
                     </div>
 
-                    {/* Status Actions */}
-                    {prospect.status === 'new' && (
-                        <div className="flex gap-2">
-                            <Button variant="default" className="bg-green-500 hover:bg-green-600" onClick={() => handleStatusChange('approved')}>
-                                <CheckCircle className="mr-2 h-4 w-4" />
-                                Setujui
-                            </Button>
-                            <Button variant="destructive" onClick={() => handleStatusChange('rejected')}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Tolak
-                            </Button>
-                        </div>
-                    )}
+                    {/* Status Actions - Mobile Responsive */}
+                    <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+                        {prospect.status === 'new' && (
+                            <>
+                                <Button
+                                    variant="default"
+                                    className="flex-1 bg-green-500 hover:bg-green-600 sm:flex-none"
+                                    onClick={() => handleQuickStatusChange('qualified')}
+                                    disabled={isUpdatingStatus}
+                                >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    {isUpdatingStatus ? 'Memproses...' : 'Setujui'}
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={() => handleQuickStatusChange('rejected')}
+                                    disabled={isUpdatingStatus}
+                                    className="flex-1 sm:flex-none"
+                                >
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    {isUpdatingStatus ? 'Memproses...' : 'Tolak'}
+                                </Button>
+                            </>
+                        )}
+                        {prospect.status !== 'new' && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                <span>Status dapat diubah di panel samping</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -216,10 +346,13 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div>
-                                    <p className="mb-2 text-sm font-medium text-muted-foreground">Alamat Lengkap</p>
+                                    <p className="mb-2 text-sm font-medium text-muted-foreground">Alamat Lengkap Customer</p>
                                     <p className="text-base">{prospect.address}</p>
                                 </div>
-
+                                <div>
+                                    <p className="mb-2 text-sm font-medium text-muted-foreground">Lokasi Sales</p>
+                                    <p className="text-base">{prospect.sales_location ? prospect.sales_location : 'Lokasi tidak tersedia'}</p>
+                                </div>
                                 {prospect.latitude && prospect.longitude && (
                                     <div>
                                         <p className="mb-2 text-sm font-medium text-muted-foreground">Koordinat GPS</p>
@@ -284,6 +417,168 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                                 <Button variant="outline" size="sm" asChild className="w-full">
                                     <Link href={`/admin/sales-management/${prospect.sales.id}`}>Lihat Detail Sales</Link>
                                 </Button>
+                            </CardContent>
+                        </Card>
+
+                        {/* Status Management */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Edit className="h-5 w-5" />
+                                    Kelola Status
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <p className="mb-3 text-sm font-medium text-muted-foreground">Status Saat Ini</p>
+                                    <div className="flex items-center justify-center rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`rounded-full p-2 ${getStatusDisplay(prospect.status).bgColor}`}>
+                                                <div className={getStatusDisplay(prospect.status).color}>
+                                                    {getStatusDisplay(prospect.status).icon}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <p className="text-lg font-semibold">{getStatusDisplay(prospect.status).text}</p>
+                                                <p className="text-sm text-muted-foreground">Status prospek saat ini</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p className="mb-2 text-sm font-medium text-muted-foreground">Ubah Status</p>
+                                    <Select
+                                        value={prospect.status}
+                                        onValueChange={(value) =>
+                                            handleStatusChange(value as 'new' | 'contacted' | 'qualified' | 'converted' | 'rejected')
+                                        }
+                                        disabled={isUpdatingStatus}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Pilih status baru" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="new">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="h-4 w-4" />
+                                                    <span>Baru</span>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="contacted">
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle className="h-4 w-4" />
+                                                    <span>Dihubungi</span>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="qualified">
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                                    <span>Terkualifikasi</span>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="converted">
+                                                <div className="flex items-center gap-2">
+                                                    <CheckCircle className="h-4 w-4 text-blue-500" />
+                                                    <span>Terkonversi</span>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="rejected">
+                                                <div className="flex items-center gap-2">
+                                                    <XCircle className="h-4 w-4 text-red-500" />
+                                                    <span>Ditolak</span>
+                                                </div>
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Quick Action Buttons */}
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-muted-foreground">Aksi Cepat</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {prospect.status === 'new' && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleStatusChange('contacted')}
+                                                disabled={isUpdatingStatus}
+                                                className="text-xs"
+                                            >
+                                                <CheckCircle className="mr-1 h-3 w-3" />
+                                                Dihubungi
+                                            </Button>
+                                        )}
+
+                                        {['new', 'contacted'].includes(prospect.status) && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleStatusChange('qualified')}
+                                                disabled={isUpdatingStatus}
+                                                className="bg-green-50 text-xs text-green-700 hover:bg-green-100"
+                                            >
+                                                <CheckCircle className="mr-1 h-3 w-3" />
+                                                Setujui
+                                            </Button>
+                                        )}
+
+                                        {['new', 'contacted', 'qualified'].includes(prospect.status) && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleStatusChange('converted')}
+                                                disabled={isUpdatingStatus}
+                                                className="bg-blue-50 text-xs text-blue-700 hover:bg-blue-100"
+                                            >
+                                                <CheckCircle className="mr-1 h-3 w-3" />
+                                                Konversi
+                                            </Button>
+                                        )}
+
+                                        {!['rejected', 'converted'].includes(prospect.status) && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleStatusChange('rejected')}
+                                                disabled={isUpdatingStatus}
+                                                className="bg-red-50 text-xs text-red-700 hover:bg-red-100"
+                                            >
+                                                <XCircle className="mr-1 h-3 w-3" />
+                                                Tolak
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {isUpdatingStatus && (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                        <span>Memperbarui status...</span>
+                                    </div>
+                                )}
+
+                                {/* Status Information */}
+                                <div className="mt-4 rounded-lg bg-blue-50 p-3 text-sm">
+                                    <p className="mb-2 font-medium text-blue-900">Informasi Status:</p>
+                                    <ul className="space-y-1 text-xs text-blue-800">
+                                        <li>
+                                            <strong>Baru:</strong> Prospek baru dibuat
+                                        </li>
+                                        <li>
+                                            <strong>Dihubungi:</strong> Sales sudah menghubungi
+                                        </li>
+                                        <li>
+                                            <strong>Terkualifikasi:</strong> Prospek memenuhi kriteria
+                                        </li>
+                                        <li>
+                                            <strong>Terkonversi:</strong> Menjadi customer
+                                        </li>
+                                        <li>
+                                            <strong>Ditolak:</strong> Prospek tidak sesuai
+                                        </li>
+                                    </ul>
+                                </div>
                             </CardContent>
                         </Card>
 
@@ -366,6 +661,18 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Notification */}
+            <Notification
+                show={notification.show}
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                onClose={hideNotification}
+                autoHide={true}
+                duration={5000}
+                position="top-right"
+            />
         </AppLayout>
     );
 }
