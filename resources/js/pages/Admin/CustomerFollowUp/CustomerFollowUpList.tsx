@@ -408,7 +408,7 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
             header: 'Assigned To',
             className: 'min-w-[120px]',
             render: (data: CustomerFollowUp) => (
-                <div className="text-sm">{data.assignee ? data.assignee.name : <span className="text-muted-foreground">Unassigned</span>}</div>
+                <div className="text-sm font-medium">{data.assignee ? data.assignee.name : <Badge variant={'destructive'}>Unassigned</Badge>}</div>
             ),
         },
         {
