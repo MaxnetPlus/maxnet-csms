@@ -114,10 +114,6 @@ class ProspectController extends Controller
      */
     public function show(Prospect $prospect)
     {
-        // Ensure sales can only view their own prospects
-        if ($prospect->sales_id !== auth()->id()) {
-            abort(403);
-        }
 
         $prospect->load(['category', 'sales', 'salesPoints']);
 
@@ -131,10 +127,6 @@ class ProspectController extends Controller
      */
     public function edit(Prospect $prospect)
     {
-        // Ensure sales can only edit their own prospects
-        if ($prospect->sales_id !== auth()->id()) {
-            abort(403);
-        }
 
         $categories = ProspectCategory::active()->get();
 
@@ -149,11 +141,8 @@ class ProspectController extends Controller
      */
     public function update(Request $request, Prospect $prospect)
     {
-        // Ensure sales can only update their own prospects
-        if ($prospect->sales_id !== auth()->id()) {
-            abort(403);
-        }
-
+        // Karena kita sudah menggunakan resolveRouteBinding di model,
+        // jika mencapai sini berarti user sudah pasti punya akses
         $validated = $request->validate([
             'prospect_category_id' => 'required|exists:prospect_categories,id',
             'customer_name' => 'required|string|max:255',
@@ -177,10 +166,6 @@ class ProspectController extends Controller
      */
     public function destroy(Prospect $prospect)
     {
-        // Ensure sales can only delete their own prospects
-        if ($prospect->sales_id !== auth()->id()) {
-            abort(403);
-        }
 
         $prospect->delete();
 
@@ -193,11 +178,8 @@ class ProspectController extends Controller
      */
     public function updateStatus(Request $request, Prospect $prospect)
     {
-        // Ensure sales can only update their own prospects
-        if ($prospect->sales_id !== auth()->id()) {
-            abort(403);
-        }
-
+        // Karena kita sudah menggunakan resolveRouteBinding di model,
+        // jika mencapai sini berarti user sudah pasti punya akses
         $validated = $request->validate([
             'status' => 'required|in:new,contacted,qualified,converted,rejected',
             'notes' => 'nullable|string',

@@ -100,4 +100,19 @@ class Prospect extends Model
     {
         return $this->category ? $this->category->points : 0;
     }
+
+    /**
+     * Retrieve the model for a bound value.
+     *
+     * @param  mixed  $value
+     * @param  string|null  $field
+     * @return \Illuminate\Database\Eloquent\Model|null
+     */
+    public function resolveRouteBinding($value, $field = null)
+    {
+        // Pastikan user hanya bisa mengakses prospect miliknya
+        return $this->where('id', $value)
+            ->where('sales_id', auth()->id())
+            ->first();
+    }
 }
