@@ -25,6 +25,8 @@ class CustomerFollowUp extends Model
 
     protected $casts = [
         'completed_at' => 'datetime',
+        'assigned_to' => 'integer',
+        'created_by' => 'integer',
     ];
 
     /**

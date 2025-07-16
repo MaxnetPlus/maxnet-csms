@@ -28,5 +28,6 @@ Route::middleware(['auth', 'verified'])->get('dashboard', [ReportController::cla
     ->name('dashboard');
 
 require __DIR__ . '/admin.php';
+require __DIR__ . '/sales.php';
 require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';

@@ -22,7 +22,11 @@ class RolePermissionSeeder extends Seeder
             'manage-roles-and-permissions',
             'view-reports',
             'export-data',
-
+            'access-sales',
+            'manage-prospects',
+            'manage-sales-targets',
+            'view-sales-dashboard',
+            'manage-prospect-categories',
         ];
         foreach ($perms as $perm) {
             Permission::firstOrCreate(['name' => $perm]);
@@ -36,6 +40,14 @@ class RolePermissionSeeder extends Seeder
         $user = Role::firstOrCreate(['name' => 'user']);
         $user->syncPermissions([
             'view-reports',
+        ]);
+
+        // Buat role sales & beri permission untuk sales
+        $sales = Role::firstOrCreate(['name' => 'sales']);
+        $sales->syncPermissions([
+            'access-sales',
+            'manage-prospects',
+            'view-sales-dashboard',
         ]);
 
         $this->command->info('👉 Roles & permissions berhasil di‑seed.');

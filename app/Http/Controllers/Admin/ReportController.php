@@ -7,14 +7,22 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Subscription;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ReportController extends Controller
 {
-    public function index(): Response
+    public function index(): Response|\Illuminate\Http\RedirectResponse
     {
+        // Redirect sales users to their dashboard
+        /** @var User $user */
+        $user = auth()->user();
+        if ($user && $user->hasSalesAccess() && !$user->hasRole('admin')) {
+            return redirect()->route('sales.dashboard');
+        }
+
         $stats = $this->getStats();
         $recentImports = $this->getRecentImports();
         $subscriptionsByStatus = $this->getSubscriptionsByStatus();

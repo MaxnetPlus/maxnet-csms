@@ -61,7 +61,7 @@ class CustomerFollowUpController extends Controller
         // Pagination
         $perPage = $request->get('per_page', 15);
         $followUps = $query->paginate($perPage);        // Get filter options
-        $users = User::select('id', 'name')->get();
+        $users = User::with('roles')->select('id', 'name')->get();
         $statuses = ['pending', 'in_progress', 'completed', 'cancelled'];
         $priorities = ['low', 'medium', 'high', 'urgent'];
 
@@ -88,7 +88,7 @@ class CustomerFollowUpController extends Controller
      */
     public function create(Request $request)
     {
-        $users = User::select('id', 'name')->get();
+        $users = User::with('roles')->select('id', 'name')->get();
 
         $subscription = null;
         if ($request->filled('subscription_id')) {
@@ -157,7 +157,8 @@ class CustomerFollowUpController extends Controller
     {
         $followUp->load(['customer', 'subscription', 'assignee']);
 
-        $users = User::select('id', 'name')
+        $users = User::with('roles')
+            ->select('id', 'name')
             ->orderBy('name')
             ->get();
 
@@ -173,6 +174,7 @@ class CustomerFollowUpController extends Controller
     public function update(Request $request, CustomerFollowUp $followUp)
     {
         $validated = $request->validate([
+            'customer_id' => 'nullable|string',
             'subscription_id' => 'nullable|exists:subscriptions,subscription_id',
             'priority' => 'required|in:low,medium,high,urgent',
             'status' => 'required|in:pending,in_progress,completed,cancelled',
@@ -183,7 +185,7 @@ class CustomerFollowUpController extends Controller
         ]);
 
         // Convert "unassigned" to null
-        if ($validated['assigned_to'] === 'unassigned') {
+        if ($validated['assigned_to'] === 'unassigned' || $validated['assigned_to'] === '') {
             $validated['assigned_to'] = null;
         }
 
@@ -202,6 +204,15 @@ class CustomerFollowUpController extends Controller
         }
 
         $followUp->update($validated);
+
+        // Check if this is an AJAX request (from our quick assign modal)
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Follow up berhasil diperbarui.',
+                'followUp' => $followUp->load(['customer', 'subscription', 'creator', 'assignee'])
+            ]);
+        }
 
         return redirect()->route('admin.follow-ups.index')
             ->with('success', 'Follow up berhasil diperbarui.');
@@ -237,7 +248,7 @@ class CustomerFollowUpController extends Controller
             ->where('subscription_id', $request->subscription_id)
             ->firstOrFail();
 
-        $users = User::select('id', 'name')->get();
+        $users = User::with('roles')->select('id', 'name')->get();
 
         return Inertia::render('Admin/CustomerFollowUp/CreateFromSubscription', [
             'subscription' => $subscription,

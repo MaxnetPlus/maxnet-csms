@@ -223,8 +223,8 @@ class ComposerStaticInitba5545b2a1d6743f72e9d2539f471218
         'phpDocumentor\\Reflection\\' => 
         array (
             0 => __DIR__ . '/..' . '/phpdocumentor/reflection-common/src',
-            1 => __DIR__ . '/..' . '/phpdocumentor/type-resolver/src',
-            2 => __DIR__ . '/..' . '/phpdocumentor/reflection-docblock/src',
+            1 => __DIR__ . '/..' . '/phpdocumentor/reflection-docblock/src',
+            2 => __DIR__ . '/..' . '/phpdocumentor/type-resolver/src',
         ),
         'ZipStream\\' => 
         array (
@@ -655,6 +655,7 @@ class ComposerStaticInitba5545b2a1d6743f72e9d2539f471218
 
     public static $classMap = array (
         'App\\Console\\Commands\\CreateAdminUser' => __DIR__ . '/../..' . '/app/Console/Commands/CreateAdminUser.php',
+        'App\\Console\\Commands\\DebugSalesTargets' => __DIR__ . '/../..' . '/app/Console/Commands/DebugSalesTargets.php',
         'App\\Console\\Commands\\TestPasswordReset' => __DIR__ . '/../..' . '/app/Console/Commands/TestPasswordReset.php',
         'App\\Exports\\CustomerFollowUpExport' => __DIR__ . '/../..' . '/app/Exports/CustomerFollowUpExport.php',
         'App\\Extensions\\UsernameOrEmailUserProvider' => __DIR__ . '/../..' . '/app/Extensions/UsernameOrEmailUserProvider.php',
@@ -662,8 +663,11 @@ class ComposerStaticInitba5545b2a1d6743f72e9d2539f471218
         'App\\Http\\Controllers\\Admin\\CustomerFollowUpController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/CustomerFollowUpController.php',
         'App\\Http\\Controllers\\Admin\\DatabaseImportController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/DatabaseImportController.php',
         'App\\Http\\Controllers\\Admin\\DismantleSubscriptionController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/DismantleSubscriptionController.php',
+        'App\\Http\\Controllers\\Admin\\ProspectCategoryController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/ProspectCategoryController.php',
+        'App\\Http\\Controllers\\Admin\\ProspectManagementController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/ProspectManagementController.php',
         'App\\Http\\Controllers\\Admin\\ReportController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/ReportController.php',
         'App\\Http\\Controllers\\Admin\\RolePermissionController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/RolePermissionController.php',
+        'App\\Http\\Controllers\\Admin\\SalesManagementController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/SalesManagementController.php',
         'App\\Http\\Controllers\\Admin\\SubscriptionController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/SubscriptionController.php',
         'App\\Http\\Controllers\\Admin\\SuspendSubscriptionController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/SuspendSubscriptionController.php',
         'App\\Http\\Controllers\\Admin\\UserController' => __DIR__ . '/../..' . '/app/Http/Controllers/Admin/UserController.php',
@@ -678,6 +682,9 @@ class ComposerStaticInitba5545b2a1d6743f72e9d2539f471218
         'App\\Http\\Controllers\\Auth\\VerifyEmailController' => __DIR__ . '/../..' . '/app/Http/Controllers/Auth/VerifyEmailController.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
         'App\\Http\\Controllers\\ExportController' => __DIR__ . '/../..' . '/app/Http/Controllers/ExportController.php',
+        'App\\Http\\Controllers\\Sales\\CustomerFollowUpController' => __DIR__ . '/../..' . '/app/Http/Controllers/Sales/CustomerFollowUpController.php',
+        'App\\Http\\Controllers\\Sales\\ProspectController' => __DIR__ . '/../..' . '/app/Http/Controllers/Sales/ProspectController.php',
+        'App\\Http\\Controllers\\Sales\\SalesDashboardController' => __DIR__ . '/../..' . '/app/Http/Controllers/Sales/SalesDashboardController.php',
         'App\\Http\\Controllers\\Settings\\PasswordController' => __DIR__ . '/../..' . '/app/Http/Controllers/Settings/PasswordController.php',
         'App\\Http\\Controllers\\Settings\\ProfileController' => __DIR__ . '/../..' . '/app/Http/Controllers/Settings/ProfileController.php',
         'App\\Http\\Middleware\\HandleAppearance' => __DIR__ . '/../..' . '/app/Http/Middleware/HandleAppearance.php',
@@ -688,6 +695,10 @@ class ComposerStaticInitba5545b2a1d6743f72e9d2539f471218
         'App\\Models\\Customer' => __DIR__ . '/../..' . '/app/Models/Customer.php',
         'App\\Models\\CustomerFollowUp' => __DIR__ . '/../..' . '/app/Models/CustomerFollowUp.php',
         'App\\Models\\Invitation' => __DIR__ . '/../..' . '/app/Models/Invitation.php',
+        'App\\Models\\Prospect' => __DIR__ . '/../..' . '/app/Models/Prospect.php',
+        'App\\Models\\ProspectCategory' => __DIR__ . '/../..' . '/app/Models/ProspectCategory.php',
+        'App\\Models\\SalesPoint' => __DIR__ . '/../..' . '/app/Models/SalesPoint.php',
+        'App\\Models\\SalesTarget' => __DIR__ . '/../..' . '/app/Models/SalesTarget.php',
         'App\\Models\\Subscription' => __DIR__ . '/../..' . '/app/Models/Subscription.php',
         'App\\Models\\User' => __DIR__ . '/../..' . '/app/Models/User.php',
         'App\\Notifications\\ResetPasswordNotification' => __DIR__ . '/../..' . '/app/Notifications/ResetPasswordNotification.php',
@@ -846,7 +857,9 @@ class ComposerStaticInitba5545b2a1d6743f72e9d2539f471218
         'Database\\Factories\\UserFactory' => __DIR__ . '/../..' . '/database/factories/UserFactory.php',
         'Database\\Seeders\\AdminUserSeeder' => __DIR__ . '/../..' . '/database/seeders/AdminUserSeeder.php',
         'Database\\Seeders\\DatabaseSeeder' => __DIR__ . '/../..' . '/database/seeders/DatabaseSeeder.php',
+        'Database\\Seeders\\ProspectCategorySeeder' => __DIR__ . '/../..' . '/database/seeders/ProspectCategorySeeder.php',
         'Database\\Seeders\\RolePermissionSeeder' => __DIR__ . '/../..' . '/database/seeders/RolePermissionSeeder.php',
+        'Database\\Seeders\\SalesTestUserSeeder' => __DIR__ . '/../..' . '/database/seeders/SalesTestUserSeeder.php',
         'Database\\Seeders\\UserSeeder' => __DIR__ . '/../..' . '/database/seeders/UserSeeder.php',
         'DateError' => __DIR__ . '/..' . '/symfony/polyfill-php83/Resources/stubs/DateError.php',
         'DateException' => __DIR__ . '/..' . '/symfony/polyfill-php83/Resources/stubs/DateException.php',
