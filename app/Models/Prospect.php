@@ -18,7 +18,6 @@ class Prospect extends Model
         'customer_email',
         'customer_number',
         'address',
-        'sales_location',
         'latitude',
         'longitude',
         'status',
@@ -110,7 +109,12 @@ class Prospect extends Model
      */
     public function resolveRouteBinding($value, $field = null)
     {
-        // Pastikan user hanya bisa mengakses prospect miliknya
+        // Jika user adalah admin atau memiliki permission manage-sales-targets, bisa akses semua
+        if (auth()->user() && auth()->user()->can('manage-sales-targets')) {
+            return $this->where('id', $value)->first();
+        }
+
+        // Untuk sales biasa, hanya bisa akses prospect miliknya
         return $this->where('id', $value)
             ->where('sales_id', auth()->id())
             ->first();
