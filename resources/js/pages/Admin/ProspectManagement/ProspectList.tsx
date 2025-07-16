@@ -138,7 +138,7 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                 // Get CSRF token from meta tag
                 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-                const response = await fetch(`/admin/prospect-management/table-data`, {
+                const response = await fetch(route('admin.prospect-management.table-data'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -237,7 +237,7 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
             return;
         }
 
-        router.delete(`/admin/prospect-management/${id}`, {
+        router.delete(route('admin.prospect-management.destroy', id), {
             onSuccess: () => {
                 // Refresh the table data
                 fetchTableData(currentPage, filters, true);
@@ -253,7 +253,7 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
     const handleStatusChange = (prospectId: number, newStatus: 'approved' | 'rejected') => {
         if (confirm(`Are you sure you want to ${newStatus === 'approved' ? 'approve' : 'reject'} this prospect?`)) {
             router.patch(
-                `/admin/prospect-management/${prospectId}/status`,
+                route('admin.prospect-management.update-status', prospectId),
                 {
                     status: newStatus === 'approved' ? 'qualified' : 'rejected',
                 },
@@ -392,7 +392,7 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
             className: 'min-w-[200px]',
             render: (data: Prospect) => (
                 <div className="flex gap-1">
-                    <Link href={`/admin/prospect-management/${data.id}`}>
+                    <Link href={route('admin.prospect-management.show', data.id)}>
                         <Button size="sm" variant="outline" className="h-8 w-8 p-0" title="View Details">
                             <Eye className="h-4 w-4" />
                         </Button>
@@ -599,7 +599,7 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                             </Select>
                         </div>
                         <div className="flex items-center gap-3">
-                            <Link href="/admin/prospect-management/export" className="inline-flex items-center">
+                            <Link href={route('admin.prospect-management.export')} className="inline-flex items-center">
                                 <Button variant="outline" size="sm" className="gap-1">
                                     <svg
                                         xmlns="http://www.w3.org/2000/svg"
