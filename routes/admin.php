@@ -150,7 +150,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     });
 
     // Prospect Management routes  
-    Route::middleware('can:manage-prospects')->prefix('prospect-management')->name('prospect-management.')->group(function () {
+    Route::middleware('can:manage-sales-targets')->prefix('prospect-management')->name('prospect-management.')->group(function () {
         Route::get('/', [ProspectManagementController::class, 'index'])->name('index');
         Route::post('/table-data', [ProspectManagementController::class, 'tableData'])->name('table-data');
         Route::get('/table-data', [ProspectManagementController::class, 'tableData'])->name('table-data-get'); // Support GET as well

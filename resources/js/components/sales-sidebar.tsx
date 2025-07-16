@@ -61,7 +61,7 @@ export function SalesSidebar() {
                                 <AppLogo />
                                 <div className="grid flex-1 text-left text-sm leading-tight">
                                     <span className="truncate font-semibold text-primary">Sales Portal</span>
-                                    <span className="truncate text-xs text-muted-foreground">Mobile Friendly</span>
+                                    <span className="truncate text-xs text-muted-foreground">Mobile Ready</span>
                                 </div>
                             </Link>
                         </SidebarMenuButton>
@@ -71,14 +71,19 @@ export function SalesSidebar() {
 
             <SidebarContent className="bg-card/30">
                 <SidebarGroup>
-                    <SidebarGroupLabel>Platform</SidebarGroupLabel>
+                    <SidebarGroupLabel className="text-xs font-medium text-muted-foreground">Menu Utama</SidebarGroupLabel>
                     <SidebarMenu>
                         {salesNavItems.map((item) => (
                             <SidebarMenuItem key={item.title}>
-                                <SidebarMenuButton asChild isActive={item.isActive} tooltip={{ children: item.title }}>
+                                <SidebarMenuButton
+                                    asChild
+                                    isActive={item.isActive}
+                                    tooltip={{ children: item.title }}
+                                    className="h-10 hover:bg-muted/50"
+                                >
                                     <Link href={item.href} prefetch>
-                                        <item.icon />
-                                        <span>{item.title}</span>
+                                        <item.icon className="h-4 w-4" />
+                                        <span className="text-sm font-medium">{item.title}</span>
                                     </Link>
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
@@ -87,9 +92,11 @@ export function SalesSidebar() {
                 </SidebarGroup>
             </SidebarContent>
 
-            <SidebarFooter className="bg-card/50">
-                <ThemeToggle />
-                <NavUser />
+            <SidebarFooter className="border-t bg-card/50">
+                <div className="space-y-2 p-2">
+                    <ThemeToggle />
+                    <NavUser />
+                </div>
             </SidebarFooter>
         </Sidebar>
     );

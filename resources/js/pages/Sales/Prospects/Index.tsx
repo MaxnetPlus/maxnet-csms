@@ -90,18 +90,18 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                 { title: 'Prospek', href: '/sales/prospects' },
             ]}
         >
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
                 {/* Header */}
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold">Kelola Prospek</h1>
-                        <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <h1 className="text-xl font-bold md:text-2xl">Kelola Prospek</h1>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <p>Total {prospects.total} prospek</p>
                             {dateFrom && dateTo && dateFrom === dateTo && dateFrom === new Date().toISOString().split('T')[0] && (
-                                <span className="rounded bg-blue-50 px-2 py-1 text-sm text-blue-600">• Hari ini</span>
+                                <span className="rounded bg-blue-50 px-2 py-1 text-xs text-blue-600">• Hari ini</span>
                             )}
                             {dateFrom && dateTo && (dateFrom !== dateTo || dateFrom !== new Date().toISOString().split('T')[0]) && (
-                                <span className="rounded bg-orange-50 px-2 py-1 text-sm text-orange-600">
+                                <span className="rounded bg-orange-50 px-2 py-1 text-xs text-orange-600">
                                     •{' '}
                                     {dateFrom === dateTo
                                         ? `Tanggal ${new Date(dateFrom).toLocaleDateString('id-ID')}`
@@ -110,7 +110,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                             )}
                         </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                         {/* Show Today Button if not already showing today */}
                         {!(dateFrom && dateTo && dateFrom === dateTo && dateFrom === new Date().toISOString().split('T')[0]) && (
                             <Button
@@ -121,14 +121,14 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                     setDateFrom(today);
                                     setDateTo(today);
                                 }}
-                                className="w-full sm:w-auto"
+                                className="h-10 w-full text-xs sm:w-auto md:text-sm"
                             >
                                 Tampilkan Hari Ini
                             </Button>
                         )}
-                        <Button asChild className="w-full sm:w-auto">
+                        <Button asChild className="h-10 w-full text-xs sm:w-auto md:text-sm">
                             <Link href="/sales/prospects/create">
-                                <Plus className="mr-2 h-4 w-4" />
+                                <Plus className="mr-2 h-3 w-3 md:h-4 md:w-4" />
                                 Tambah Prospek
                             </Link>
                         </Button>
@@ -136,10 +136,10 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                 </div>
 
                 {/* Filters - Mobile Optimized */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Filter className="h-5 w-5" />
+                <Card className="border-0 shadow-sm md:border md:shadow-none">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                            <Filter className="h-4 w-4 md:h-5 md:w-5" />
                             Filter & Pencarian
                         </CardTitle>
                     </CardHeader>
@@ -153,7 +153,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                         placeholder="Cari nama, email, nomor, atau alamat..."
                                         value={search}
                                         onChange={(e) => setSearch(e.target.value)}
-                                        className="pl-10"
+                                        className="h-11 pl-10 md:h-10"
                                     />
                                 </div>
                             </div>
@@ -164,7 +164,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                 <div>
                                     <label className="mb-2 block text-sm font-medium">Status</label>
                                     <Select value={status} onValueChange={setStatus}>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="h-11 md:h-10">
                                             <SelectValue placeholder="Semua Status" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -182,7 +182,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                 <div>
                                     <label className="mb-2 block text-sm font-medium">Kategori</label>
                                     <Select value={categoryId} onValueChange={setCategoryId}>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="h-11 md:h-10">
                                             <SelectValue placeholder="Semua Kategori" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -201,11 +201,11 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <label className="mb-2 block text-sm font-medium">Tanggal Dari</label>
-                                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                                    <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-11 md:h-10" />
                                 </div>
                                 <div>
                                     <label className="mb-2 block text-sm font-medium">Tanggal Sampai</label>
-                                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                                    <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-11 md:h-10" />
                                 </div>
                             </div>
 
@@ -214,7 +214,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                 status !== 'all' ||
                                 categoryId !== 'all' ||
                                 (dateFrom && dateTo && !(dateFrom === dateTo && dateFrom === new Date().toISOString().split('T')[0]))) && (
-                                <div className="flex justify-end gap-2">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -226,6 +226,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                             setDateFrom(today);
                                             setDateTo(today);
                                         }}
+                                        className="h-9 text-xs sm:w-auto"
                                     >
                                         Reset ke Hari Ini
                                     </Button>
@@ -239,6 +240,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                             setDateFrom('');
                                             setDateTo('');
                                         }}
+                                        className="h-9 text-xs sm:w-auto"
                                     >
                                         Hapus Semua Filter
                                     </Button>
@@ -249,19 +251,21 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                 </Card>
 
                 {/* Prospects List - Mobile Cards */}
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                     {prospects.data.length > 0 ? (
                         prospects.data.map((prospect: any) => (
-                            <Card key={prospect.id} className="transition-shadow hover:shadow-md">
+                            <Card key={prospect.id} className="border-0 shadow-sm transition-shadow hover:shadow-md md:border md:shadow-none">
                                 <CardContent className="p-4">
-                                    <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0 flex-1">
                                             <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                                                <h3 className="truncate text-lg font-semibold">{prospect.customer_name}</h3>
-                                                <Badge variant={getStatusBadge(prospect.status)}>{getStatusLabel(prospect.status)}</Badge>
+                                                <h3 className="truncate text-base font-semibold md:text-lg">{prospect.customer_name}</h3>
+                                                <Badge variant={getStatusBadge(prospect.status)} className="self-start text-xs">
+                                                    {getStatusLabel(prospect.status)}
+                                                </Badge>
                                             </div>
 
-                                            <div className="space-y-1 text-sm text-muted-foreground">
+                                            <div className="space-y-1 text-xs text-muted-foreground md:text-sm">
                                                 {prospect.customer_email && <p>📧 {prospect.customer_email}</p>}
                                                 {prospect.customer_number && <p>📱 {prospect.customer_number}</p>}
                                                 {prospect.category && (
@@ -282,12 +286,12 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                         </div>
 
                                         <div className="flex flex-col gap-2">
-                                            <Button variant="outline" size="sm" asChild>
+                                            <Button variant="outline" size="sm" asChild className="h-8 text-xs">
                                                 <Link href={`/sales/prospects/${prospect.id}`}>Detail</Link>
                                             </Button>
                                             {prospect.latitude && prospect.longitude && (
-                                                <Button variant="ghost" size="sm" className="text-primary">
-                                                    <MapPin className="h-4 w-4" />
+                                                <Button variant="ghost" size="sm" className="h-8 text-primary">
+                                                    <MapPin className="h-3 w-3" />
                                                 </Button>
                                             )}
                                         </div>
@@ -296,17 +300,17 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                             </Card>
                         ))
                     ) : (
-                        <Card>
-                            <CardContent className="p-8 text-center">
-                                <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-                                <h3 className="mb-2 text-lg font-semibold">Belum Ada Prospek</h3>
-                                <p className="mb-4 text-muted-foreground">
+                        <Card className="border-0 shadow-sm md:border md:shadow-none">
+                            <CardContent className="p-6 text-center md:p-8">
+                                <Users className="mx-auto mb-4 h-10 w-10 text-muted-foreground md:h-12 md:w-12" />
+                                <h3 className="mb-2 text-base font-semibold md:text-lg">Belum Ada Prospek</h3>
+                                <p className="mb-4 text-sm text-muted-foreground">
                                     {search || status !== 'all' || categoryId !== 'all' || dateFrom || dateTo
                                         ? 'Tidak ada prospek yang sesuai dengan filter.'
                                         : 'Mulai tambahkan prospek pertama Anda.'}
                                 </p>
                                 {!search && status === 'all' && categoryId === 'all' && !dateFrom && !dateTo && (
-                                    <Button asChild>
+                                    <Button asChild className="h-10 text-sm">
                                         <Link href="/sales/prospects/create">
                                             <Plus className="mr-2 h-4 w-4" />
                                             Tambah Prospek
@@ -320,7 +324,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
 
                 {/* Pagination - Mobile Friendly */}
                 {prospects.last_page > 1 && (
-                    <Card>
+                    <Card className="border-0 shadow-sm md:border md:shadow-none">
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between text-sm text-muted-foreground">
                                 <span>
@@ -340,6 +344,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                                     date_to: dateTo || undefined,
                                                 })
                                             }
+                                            className="h-8 text-xs"
                                         >
                                             Sebelumnya
                                         </Button>
@@ -357,6 +362,7 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                                     date_to: dateTo || undefined,
                                                 })
                                             }
+                                            className="h-8 text-xs"
                                         >
                                             Selanjutnya
                                         </Button>
