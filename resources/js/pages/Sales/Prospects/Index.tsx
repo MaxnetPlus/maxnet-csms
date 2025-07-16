@@ -290,7 +290,15 @@ export default function ProspectsIndex({ prospects, categories, filters }: Prosp
                                                 <Link href={`/sales/prospects/${prospect.id}`}>Detail</Link>
                                             </Button>
                                             {prospect.latitude && prospect.longitude && (
-                                                <Button variant="ghost" size="sm" className="h-8 text-primary">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 text-primary"
+                                                    onClick={() => {
+                                                        const googleMapsUrl = `https://www.google.com/maps?q=${prospect.latitude},${prospect.longitude}`;
+                                                        window.open(googleMapsUrl, '_blank');
+                                                    }}
+                                                >
                                                     <MapPin className="h-3 w-3" />
                                                 </Button>
                                             )}

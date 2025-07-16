@@ -58,9 +58,9 @@ class CustomerFollowUpController extends Controller
     public function show(CustomerFollowUp $followUp)
     {
         // Ensure sales can only view their assigned follow ups
-        if ($followUp->assigned_to !== auth()->id()) {
-            abort(403);
-        }
+        // if ($followUp->assigned_to !== auth()->id()) {
+        //     abort(403);
+        // }
 
         $followUp->load(['customer', 'subscription', 'creator']);
 
@@ -75,9 +75,9 @@ class CustomerFollowUpController extends Controller
     public function complete(Request $request, CustomerFollowUp $followUp)
     {
         // Ensure user is authenticated
-        if (!auth()->check()) {
-            abort(401, 'User not authenticated');
-        }
+        // if (!auth()->check()) {
+        //     abort(401, 'User not authenticated');
+        // }
 
         // Ensure sales can only complete their assigned follow ups
         $currentUserId = auth()->id();
@@ -108,9 +108,9 @@ class CustomerFollowUpController extends Controller
     public function updateNotes(Request $request, CustomerFollowUp $followUp)
     {
         // Ensure sales can only update their assigned follow ups
-        if (!auth()->check()) {
-            abort(401, 'User not authenticated');
-        }
+        // if (!auth()->check()) {
+        //     abort(401, 'User not authenticated');
+        // }
 
         // Ensure sales can only complete their assigned follow ups
         $currentUserId = auth()->id();
