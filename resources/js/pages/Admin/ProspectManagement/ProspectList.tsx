@@ -1,11 +1,12 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Notification, useNotification } from '@/components/ui/notification';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { Link, router } from '@inertiajs/react';
-import { CheckCircle, ChevronLeft, ChevronRight, Eye, Filter, Search, Trash2, User, XCircle } from 'lucide-react';
+import { CheckCircle, ChevronLeft, ChevronRight, Eye, Filter, Loader2, Search, Trash2, User, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface User {
@@ -80,6 +81,13 @@ const statusConfig = {
 } as const;
 
 export default function ProspectList({ initialFilters = {}, categories, salesUsers }: ProspectListProps) {
+    // Get today's date in YYYY-MM-DD format
+    const getTodayDate = () => {
+        return new Date().toISOString().split('T')[0];
+    };
+
+    console.log('categories', categories);
+
     const [tableData, setTableData] = useState<PaginationData | null>(null);
     const [loading, setLoading] = useState(false);
     const { notification, showNotification, hideNotification } = useNotification();
@@ -88,8 +96,8 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
         status: initialFilters.status || 'all',
         category_id: initialFilters.category_id || 'all',
         sales_id: initialFilters.sales_id || 'all',
-        date_from: initialFilters.date_from || '',
-        date_to: initialFilters.date_to || '',
+        date_from: initialFilters.date_from || getTodayDate(),
+        date_to: initialFilters.date_to || getTodayDate(),
         sort: initialFilters.sort || 'created_at',
         direction: initialFilters.direction || 'desc',
     });
@@ -127,19 +135,30 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
             setLastFetchParams(fetchKey);
 
             try {
+                // Get CSRF token from meta tag
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
                 const response = await fetch(`/admin/prospect-management/table-data`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                        Accept: 'application/json',
                     },
                     body: JSON.stringify(requestData),
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
                 const data = await response.json();
                 setTableData(data);
                 setCurrentPage(data.current_page);
             } catch (error) {
                 console.error('Failed to fetch data:', error);
+                showNotification('error', 'Data Fetch Error', 'Failed to load prospect data. Please try again.');
             } finally {
                 setLoading(false);
             }
@@ -192,20 +211,25 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
             direction: newDirection,
         }));
     };
-
     const clearFilters = () => {
+        // Get today's date to use as default for date fields
+        const todayDate = getTodayDate();
+
         const clearedFilters = {
             search: '',
             status: 'all',
             category_id: 'all',
             sales_id: 'all',
-            date_from: '',
-            date_to: '',
+            date_from: todayDate,
+            date_to: todayDate,
             sort: 'created_at',
             direction: 'desc',
         };
         setFilters(clearedFilters);
         setCurrentPage(1);
+
+        // Force refresh of data
+        fetchTableData(1, clearedFilters, true);
     };
 
     const handleDelete = async (id: number) => {
@@ -413,197 +437,7 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
 
     return (
         <div className="space-y-4">
-            {/* Search and Filter Bar */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2">
-                            <Filter className="h-5 w-5" />
-                            Filters & Search
-                        </CardTitle>
-                        <Button variant="outline" onClick={() => setShowFilters(!showFilters)}>
-                            {showFilters ? 'Hide Filters' : 'Show Filters'}
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Search Form */}
-                    <form onSubmit={handleSearch} className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
-                            <Input
-                                placeholder="Search by customer name, email, phone, or address..."
-                                value={filters.search}
-                                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-                                className="pl-10"
-                            />
-                        </div>
-                        <Button type="submit" variant="outline" disabled={loading}>
-                            Search
-                        </Button>
-                        <Button type="button" variant="outline" onClick={clearFilters} disabled={loading}>
-                            Clear
-                        </Button>
-                    </form>
-
-                    {/* Advanced Filters */}
-                    {showFilters && (
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            <Select value={filters.status} onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All Status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Status</SelectItem>
-                                    <SelectItem value="new">New</SelectItem>
-                                    <SelectItem value="contacted">Contacted</SelectItem>
-                                    <SelectItem value="qualified">Qualified</SelectItem>
-                                    <SelectItem value="converted">Converted</SelectItem>
-                                    <SelectItem value="rejected">Rejected</SelectItem>
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={filters.category_id} onValueChange={(value) => setFilters((prev) => ({ ...prev, category_id: value }))}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All Categories" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Categories</SelectItem>
-                                    {categories.map((category) => (
-                                        <SelectItem key={category.id} value={category.id.toString()}>
-                                            {category.name} ({category.points} pts)
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={filters.sales_id} onValueChange={(value) => setFilters((prev) => ({ ...prev, sales_id: value }))}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="All Sales" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Sales</SelectItem>
-                                    {salesUsers.map((user) => (
-                                        <SelectItem key={user.id} value={user.id.toString()}>
-                                            {user.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <Select value={perPage.toString()} onValueChange={(value) => setPerPage(Number(value))}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="10">10 per page</SelectItem>
-                                    <SelectItem value="15">15 per page</SelectItem>
-                                    <SelectItem value="25">25 per page</SelectItem>
-                                    <SelectItem value="50">50 per page</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Table */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                        <CardTitle>Prospects {tableData && `(${tableData.from}-${tableData.to} of ${tableData.total})`}</CardTitle>
-                        {loading && <div className="text-sm text-muted-foreground">Loading...</div>}
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="border-b">
-                                    {columns.map((column, index) => (
-                                        <th key={index} className={`p-3 text-left text-sm font-medium ${column.className || ''}`}>
-                                            {column.sortable ? (
-                                                <button
-                                                    onClick={() => handleSort(column.header.toLowerCase().replace(' ', '_'))}
-                                                    className="flex items-center gap-1 hover:text-primary"
-                                                    disabled={loading}
-                                                >
-                                                    {column.header}
-                                                    <SortIcon field={column.header.toLowerCase().replace(' ', '_')} />
-                                                </button>
-                                            ) : (
-                                                column.header
-                                            )}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {tableData?.data.map((prospect) => (
-                                    <tr key={prospect.id} className="border-b hover:bg-muted/50">
-                                        {columns.map((column, index) => (
-                                            <td key={index} className={`p-3 ${column.className || ''}`}>
-                                                {column.render(prospect)}
-                                            </td>
-                                        ))}
-                                    </tr>
-                                ))}
-                                {tableData?.data.length === 0 && (
-                                    <tr>
-                                        <td colSpan={columns.length} className="p-8 text-center text-muted-foreground">
-                                            No prospects found matching your criteria.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Pagination */}
-            {tableData && tableData.last_page > 1 && (
-                <div className="flex items-center justify-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1 || loading}>
-                        <ChevronLeft className="h-4 w-4" />
-                        Previous
-                    </Button>
-
-                    {/* Page Numbers */}
-                    <div className="flex gap-1">
-                        {Array.from({ length: Math.min(5, tableData.last_page) }, (_, i) => {
-                            const pageNumber = Math.max(1, Math.min(tableData.last_page - 4, currentPage - 2)) + i;
-                            if (pageNumber <= tableData.last_page) {
-                                return (
-                                    <Button
-                                        key={pageNumber}
-                                        variant={pageNumber === currentPage ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => handlePageChange(pageNumber)}
-                                        disabled={loading}
-                                        className="h-8 w-8 p-0"
-                                    >
-                                        {pageNumber}
-                                    </Button>
-                                );
-                            }
-                            return null;
-                        })}
-                    </div>
-
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage >= tableData.last_page || loading}
-                    >
-                        Next
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
-                </div>
-            )}
-
-            {/* Notification */}
+            {/* Notification Component */}
             <Notification
                 show={notification.show}
                 type={notification.type}
@@ -614,6 +448,338 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                 duration={5000}
                 position="top-right"
             />
+            {/* Search and Filter Bar */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Prospect Management</CardTitle>
+                            <CardDescription>Manage and track customer prospects</CardDescription>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowFilters(!showFilters)}
+                                className={cn('gap-2', showFilters && 'bg-muted')}
+                            >
+                                <Filter className="h-4 w-4" />
+                                Filters
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Search Form */}
+                    <form onSubmit={handleSearch} className="flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Search by customer name, email, phone, or address..."
+                                value={filters.search}
+                                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+                                className="pl-9"
+                            />
+                        </div>
+                        <Button type="submit" size="sm" disabled={loading}>
+                            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
+                        </Button>
+                        {(filters.search ||
+                            filters.status !== 'all' ||
+                            filters.category_id !== 'all' ||
+                            filters.sales_id !== 'all' ||
+                            filters.date_from ||
+                            filters.date_to) && (
+                            <Button type="button" variant="outline" size="sm" onClick={clearFilters}>
+                                <X className="h-4 w-4" />
+                                Clear
+                            </Button>
+                        )}
+                    </form>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {/* Advanced Filters */}
+                    {showFilters && (
+                        <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-5">
+                            <div>
+                                <label className="text-sm font-medium">Status</label>
+                                <Select value={filters.status} onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All Status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Status</SelectItem>
+                                        <SelectItem value="new">New</SelectItem>
+                                        <SelectItem value="contacted">Contacted</SelectItem>
+                                        <SelectItem value="qualified">Qualified</SelectItem>
+                                        <SelectItem value="converted">Converted</SelectItem>
+                                        <SelectItem value="rejected">Rejected</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Category</label>
+                                <Select
+                                    value={filters.category_id}
+                                    onValueChange={(value) => setFilters((prev) => ({ ...prev, category_id: value }))}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All Categories" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Categories</SelectItem>
+                                        {categories.map((category) => (
+                                            <SelectItem key={category.id} value={category.id.toString()}>
+                                                {category.name} ({category.points} pts)
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Sales Person</label>
+                                <Select value={filters.sales_id} onValueChange={(value) => setFilters((prev) => ({ ...prev, sales_id: value }))}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="All Sales" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Sales</SelectItem>
+                                        {salesUsers.map((user) => (
+                                            <SelectItem key={user.id} value={user.id.toString()}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{user.name}</span>
+                                                </div>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Date From</label>
+                                <Input
+                                    type="date"
+                                    value={filters.date_from}
+                                    onChange={(e) => setFilters((prev) => ({ ...prev, date_from: e.target.value }))}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-sm font-medium">Date To</label>
+                                <Input
+                                    type="date"
+                                    value={filters.date_to}
+                                    onChange={(e) => setFilters((prev) => ({ ...prev, date_to: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Table */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <span className="text-sm text-muted-foreground">
+                                Showing {tableData?.from || 0} to {tableData?.to || 0} of {tableData?.total || 0} entries
+                            </span>
+                            <Select value={perPage.toString()} onValueChange={(value) => setPerPage(parseInt(value))}>
+                                <SelectTrigger className="w-20">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="15">15</SelectItem>
+                                    <SelectItem value="25">25</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                    <SelectItem value="100">100</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <Link href="/admin/prospect-management/export" className="inline-flex items-center">
+                                <Button variant="outline" size="sm" className="gap-1">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="16"
+                                        height="16"
+                                        fill="currentColor"
+                                        className="bi bi-file-earmark-excel"
+                                        viewBox="0 0 16 16"
+                                    >
+                                        <path d="M5.884 6.68a.5.5 0 1 0-.768.64L7.349 10l-2.233 2.68a.5.5 0 0 0 .768.64L8 10.781l2.116 2.54a.5.5 0 0 0 .768-.641L8.651 10l2.233-2.68a.5.5 0 0 0-.768-.64L8 9.219l-2.116-2.54z" />
+                                        <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z" />
+                                    </svg>
+                                    Export CSV
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="relative">
+                        {loading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50">
+                                <Loader2 className="h-8 w-8 animate-spin" />
+                            </div>
+                        )}
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b">
+                                        {columns.map((column, index) => (
+                                            <th
+                                                key={index}
+                                                className={cn(
+                                                    'p-3 text-left font-medium',
+                                                    column.className,
+                                                    column.sortable && 'cursor-pointer hover:bg-muted/50',
+                                                )}
+                                                onClick={() => column.sortable && handleSort(column.header.toLowerCase().replace(' ', '_'))}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    {column.header}
+                                                    {column.sortable && <SortIcon field={column.header.toLowerCase().replace(' ', '_')} />}
+                                                </div>
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {tableData?.data.map((prospect) => (
+                                        <tr key={prospect.id} className="border-b hover:bg-muted/50">
+                                            {columns.map((column, index) => (
+                                                <td key={index} className={cn('p-3', column.className)}>
+                                                    {column.render(prospect)}
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                    {tableData?.data.length === 0 && (
+                                        <tr>
+                                            <td colSpan={columns.length} className="p-8 text-center text-muted-foreground">
+                                                No prospects found matching your criteria.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Pagination */}
+            {tableData && tableData.last_page > 1 && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card p-4 text-card-foreground shadow">
+                    <div className="text-sm text-muted-foreground">
+                        Showing <span className="font-medium text-foreground">{tableData.from}</span> to{' '}
+                        <span className="font-medium text-foreground">{tableData.to}</span> of{' '}
+                        <span className="font-medium text-foreground">{tableData.total}</span> prospects
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1 || loading}>
+                            <ChevronLeft className="mr-1 h-4 w-4" />
+                            Previous
+                        </Button>
+
+                        {/* Page Numbers */}
+                        <div className="hidden gap-1 sm:flex">
+                            {(() => {
+                                // Create an array of page numbers to show
+                                const pages = [];
+                                let startPage = Math.max(1, currentPage - 2);
+                                let endPage = Math.min(startPage + 4, tableData.last_page);
+
+                                if (endPage - startPage < 4) {
+                                    startPage = Math.max(1, endPage - 4);
+                                }
+
+                                // Always show first page
+                                if (startPage > 1) {
+                                    pages.push(
+                                        <Button
+                                            key={1}
+                                            variant={1 === currentPage ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => handlePageChange(1)}
+                                            disabled={loading}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            1
+                                        </Button>,
+                                    );
+
+                                    // Add ellipsis if there's a gap
+                                    if (startPage > 2) {
+                                        pages.push(
+                                            <Button key="ellipsis1" variant="outline" size="sm" disabled className="h-8 w-8 p-0">
+                                                ...
+                                            </Button>,
+                                        );
+                                    }
+                                }
+
+                                // Add page numbers
+                                for (let i = startPage; i <= endPage; i++) {
+                                    pages.push(
+                                        <Button
+                                            key={i}
+                                            variant={i === currentPage ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => handlePageChange(i)}
+                                            disabled={loading}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            {i}
+                                        </Button>,
+                                    );
+                                }
+
+                                // Always show last page
+                                if (endPage < tableData.last_page) {
+                                    // Add ellipsis if there's a gap
+                                    if (endPage < tableData.last_page - 1) {
+                                        pages.push(
+                                            <Button key="ellipsis2" variant="outline" size="sm" disabled className="h-8 w-8 p-0">
+                                                ...
+                                            </Button>,
+                                        );
+                                    }
+
+                                    pages.push(
+                                        <Button
+                                            key={tableData.last_page}
+                                            variant={tableData.last_page === currentPage ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => handlePageChange(tableData.last_page)}
+                                            disabled={loading}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            {tableData.last_page}
+                                        </Button>,
+                                    );
+                                }
+
+                                return pages;
+                            })()}
+                        </div>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage >= tableData.last_page || loading}
+                        >
+                            Next
+                            <ChevronRight className="ml-1 h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

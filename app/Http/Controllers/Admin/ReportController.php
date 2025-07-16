@@ -14,7 +14,7 @@ use Inertia\Response;
 
 class ReportController extends Controller
 {
-    public function index(): Response
+    public function index(): Response|\Illuminate\Http\RedirectResponse
     {
         // Redirect sales users to their dashboard
         /** @var User $user */

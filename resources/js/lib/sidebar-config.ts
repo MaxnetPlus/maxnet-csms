@@ -154,7 +154,7 @@ export const SIDEBAR_GROUPS: SidebarGroupConfig[] = [
 export const MAIN_NAV_ITEMS: SidebarNavItem[] = [
     {
         title: 'Dashboard',
-        href: '/admin/reports',
+        href: '/dashboard',
         icon: FileText,
         permission: 'view-reports',
     },

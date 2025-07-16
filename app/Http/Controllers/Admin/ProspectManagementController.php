@@ -57,7 +57,7 @@ class ProspectManagementController extends Controller
 
         // Get filter options
         $salesUsers = User::role('sales')->get(['id', 'name']);
-        $categories = ProspectCategory::active()->get(['id', 'name']);
+        $categories = ProspectCategory::active()->get(['id', 'name', 'points']);
 
         return Inertia::render('Admin/ProspectManagement/Index', [
             'prospects' => $prospects,
@@ -153,7 +153,7 @@ class ProspectManagementController extends Controller
     }
 
     /**
-     * Get table data for AJAX requests
+     * Get table data for AJAX requests (SSR approach)
      */
     public function tableData(Request $request)
     {
@@ -181,7 +181,8 @@ class ProspectManagementController extends Controller
                 $q->where('customer_name', 'like', "%{$search}%")
                     ->orWhere('customer_email', 'like', "%{$search}%")
                     ->orWhere('customer_number', 'like', "%{$search}%")
-                    ->orWhere('address', 'like', "%{$search}%");
+                    ->orWhere('address', 'like', "%{$search}%")
+                    ->orWhere('notes', 'like', "%{$search}%");
             });
         }
 
@@ -191,7 +192,7 @@ class ProspectManagementController extends Controller
         }
 
         if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+            $query->whereDate('created_at', '<=', $request->date_to . ' 23:59:59');
         }
 
         // Sorting
@@ -210,8 +211,9 @@ class ProspectManagementController extends Controller
         $dbSortField = $sortMapping[$sortField] ?? 'created_at';
         $query->orderBy($dbSortField, $sortDirection);
 
+        // Pagination
         $perPage = $request->get('per_page', 15);
-        $prospects = $query->paginate($perPage);
+        $prospects = $query->paginate($perPage, ['*'], 'page', $request->get('page', 1));
 
         return response()->json($prospects);
     }

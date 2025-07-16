@@ -153,6 +153,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::middleware('can:manage-prospects')->prefix('prospect-management')->name('prospect-management.')->group(function () {
         Route::get('/', [ProspectManagementController::class, 'index'])->name('index');
         Route::post('/table-data', [ProspectManagementController::class, 'tableData'])->name('table-data');
+        Route::get('/table-data', [ProspectManagementController::class, 'tableData'])->name('table-data-get'); // Support GET as well
         Route::get('/export', [ProspectManagementController::class, 'export'])->name('export');
         Route::get('/{prospect}', [ProspectManagementController::class, 'show'])->name('show');
         Route::delete('/{prospect}', [ProspectManagementController::class, 'destroy'])->name('destroy');
