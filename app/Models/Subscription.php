@@ -71,17 +71,17 @@ class Subscription extends Model
     /**
      * Follow ups untuk subscription ini
      */
-    public function followUps(): HasMany
+    public function followUps()
     {
-        return $this->hasMany(CustomerFollowUp::class, 'subscription_id', 'subscription_id');
+        return CustomerFollowUp::where('customer_id', $this->customer_id);
     }
 
     /**
      * Follow ups yang masih aktif (pending/in progress)
      */
-    public function activeFollowUps(): HasMany
+    public function activeFollowUps()
     {
-        return $this->hasMany(CustomerFollowUp::class, 'subscription_id', 'subscription_id')
+        return CustomerFollowUp::where('customer_id', $this->customer_id)
             ->whereIn('status', ['pending', 'in_progress']);
     }
 

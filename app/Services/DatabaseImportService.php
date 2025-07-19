@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Customer;
+use App\Models\Maintenance;
 use App\Models\Subscription;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -65,7 +66,7 @@ class DatabaseImportService
         }
     }
 
-    public function startAsyncImport(UploadedFile $file): array
+    public function startAsyncImport(UploadedFile $file, string $importType = 'customers_subscriptions'): array
     {
         $progressId = Str::uuid()->toString();
 
@@ -83,19 +84,20 @@ class DatabaseImportService
         $file->move(dirname($tempPath), basename($tempPath));
 
         // Start background processing
-        $this->processImportAsync($progressId, $tempPath);
+        $this->processImportAsync($progressId, $tempPath, $importType);
 
         return [
             'progress_id' => $progressId,
             'status' => 'started',
-            'message' => 'Import process started'
+            'message' => 'Import process started',
+            'import_type' => $importType
         ];
     }
 
-    private function processImportAsync(string $progressId, string $filePath): void
+    private function processImportAsync(string $progressId, string $filePath, string $importType = 'customers_subscriptions'): void
     {
         // Use register_shutdown_function to continue processing after response is sent
-        register_shutdown_function(function () use ($progressId, $filePath) {
+        register_shutdown_function(function () use ($progressId, $filePath, $importType) {
             // Ensure we don't run out of time
             set_time_limit(0);
             ignore_user_abort(true);
@@ -112,39 +114,56 @@ class DatabaseImportService
                     throw new \Exception('Failed to read SQL file');
                 }
 
-                // Parse customers data
-                $this->updateProgress($progressId, 20, 'Parsing customers data...');
-                $customersData = $this->parseCustomersFromSql($sqlContent);
-                $this->updateProgress($progressId, 25, 'Found ' . count($customersData) . ' customer records');
+                if ($importType === 'maintenances') {
+                    // Parse maintenances data
+                    $this->updateProgress($progressId, 20, 'Parsing maintenances data...');
+                    $maintenancesData = $this->parseMaintenancesFromSql($sqlContent);
+                    $this->updateProgress($progressId, 25, 'Found ' . count($maintenancesData) . ' maintenance records');
 
-                // Parse subscriptions data
-                $this->updateProgress($progressId, 30, 'Parsing subscriptions data...');
-                $subscriptionsData = $this->parseSubscriptionsFromSql($sqlContent);
-                $this->updateProgress($progressId, 35, 'Found ' . count($subscriptionsData) . ' subscription records');
+                    // Import maintenances
+                    $this->updateProgress($progressId, 40, 'Importing maintenances...');
+                    $maintenanceResults = $this->importMaintenances($maintenancesData, $progressId);
+                    $this->updateProgress($progressId, 95, 'Maintenances import completed: ' . $maintenanceResults['imported'] . ' imported, ' . $maintenanceResults['skipped'] . ' skipped');
 
-                // Import customers first
-                $this->updateProgress($progressId, 40, 'Importing customers...');
-                $customerResults = $this->importCustomers($customersData, $progressId);
-                $this->updateProgress($progressId, 65, 'Customers import completed: ' . $customerResults['imported'] . ' imported, ' . $customerResults['skipped'] . ' skipped');
+                    // Store final results
+                    $finalResults = [
+                        'progress_id' => $progressId,
+                        'maintenances' => $maintenanceResults,
+                    ];
+                } else {
+                    // Parse customers data
+                    $this->updateProgress($progressId, 20, 'Parsing customers data...');
+                    $customersData = $this->parseCustomersFromSql($sqlContent);
+                    $this->updateProgress($progressId, 25, 'Found ' . count($customersData) . ' customer records');
 
-                // Import subscriptions
-                $this->updateProgress($progressId, 70, 'Importing subscriptions...');
-                $subscriptionResults = $this->importSubscriptions($subscriptionsData, $progressId);
-                $this->updateProgress($progressId, 95, 'Subscriptions import completed: ' . $subscriptionResults['imported'] . ' imported, ' . $subscriptionResults['skipped'] . ' skipped');
+                    // Parse subscriptions data
+                    $this->updateProgress($progressId, 30, 'Parsing subscriptions data...');
+                    $subscriptionsData = $this->parseSubscriptionsFromSql($sqlContent);
+                    $this->updateProgress($progressId, 35, 'Found ' . count($subscriptionsData) . ' subscription records');
 
-                // Store final results
-                $finalResults = [
-                    'progress_id' => $progressId,
-                    'customers' => $customerResults,
-                    'subscriptions' => $subscriptionResults,
-                ];
+                    // Import customers first
+                    $this->updateProgress($progressId, 40, 'Importing customers...');
+                    $customerResults = $this->importCustomers($customersData, $progressId);
+                    $this->updateProgress($progressId, 65, 'Customers import completed: ' . $customerResults['imported'] . ' imported, ' . $customerResults['skipped'] . ' skipped');
+
+                    // Import subscriptions
+                    $this->updateProgress($progressId, 70, 'Importing subscriptions...');
+                    $subscriptionResults = $this->importSubscriptions($subscriptionsData, $progressId);
+                    $this->updateProgress($progressId, 95, 'Subscriptions import completed: ' . $subscriptionResults['imported'] . ' imported, ' . $subscriptionResults['skipped'] . ' skipped');
+
+                    // Store final results
+                    $finalResults = [
+                        'progress_id' => $progressId,
+                        'customers' => $customerResults,
+                        'subscriptions' => $subscriptionResults,
+                    ];
+                }
 
                 // Cache final results for 24 hours (for testing purposes)
                 Log::info('Caching import results', [
                     'progress_id' => $progressId,
                     'cache_key' => "import_results_{$progressId}",
-                    'customers_imported' => $customerResults['imported'],
-                    'subscriptions_imported' => $subscriptionResults['imported'],
+                    'import_type' => $importType,
                 ]);
 
                 // Store with the file driver to ensure persistence
@@ -1204,5 +1223,249 @@ class DatabaseImportService
         }
 
         return $data;
+    }
+
+    private function parseMaintenancesFromSql(string $sqlContent): array
+    {
+        $maintenances = [];
+
+        // Set memory limit for large files
+        ini_set('memory_limit', '512M');
+
+        Log::info('Starting maintenance parsing', [
+            'content_size' => strlen($sqlContent)
+        ]);
+
+        // Use a different approach: split by lines and look for INSERT statements
+        $lines = explode("\n", $sqlContent);
+        $currentInsert = '';
+        $inMaintenanceInsert = false;
+
+        foreach ($lines as $lineNum => $line) {
+            $line = trim($line);
+
+            // Check if this is the start of a maintenances INSERT statement
+            if (preg_match('/^INSERT INTO\s+`?maintenances`?\s*\(/i', $line)) {
+                $inMaintenanceInsert = true;
+                $currentInsert = $line;
+                continue;
+            }
+
+            // If we're in a maintenance insert, accumulate the lines
+            if ($inMaintenanceInsert) {
+                $currentInsert .= ' ' . $line;
+
+                // Check if this line ends the INSERT statement
+                if (preg_match('/;\s*$/', $line)) {
+                    // Parse the complete INSERT statement
+                    $this->parseMaintenanceInsertStatement($currentInsert, $maintenances);
+                    $currentInsert = '';
+                    $inMaintenanceInsert = false;
+                }
+            }
+        }
+
+        // Filter only records with subject_problem = 'sales'
+        $filteredMaintenances = array_filter($maintenances, function ($maintenance) {
+            return isset($maintenance['subject_problem']) &&
+                strtolower(trim($maintenance['subject_problem'])) === 'sales';
+        });
+
+        Log::info('Maintenance parsing completed', [
+            'total_maintenances_parsed' => count($maintenances),
+            'filtered_maintenances' => count($filteredMaintenances)
+        ]);
+
+        return array_values($filteredMaintenances);
+    }
+
+    private function parseMaintenanceInsertStatement(string $insertStatement, array &$maintenances): void
+    {
+        // Extract the VALUES part from INSERT statement
+        if (preg_match('/VALUES\s*(.+)$/is', $insertStatement, $matches)) {
+            $valuesString = $matches[1];
+
+            // Remove trailing semicolon
+            $valuesString = rtrim($valuesString, ';');
+
+            // Parse the values
+            $rows = $this->parseInsertValues($valuesString);
+
+            foreach ($rows as $row) {
+                // $row is already an array from parseInsertValues
+                $values = $row;
+
+                // Map to maintenance structure based on maintenances.sql structure
+                if (count($values) >= 19) {
+                    $maintenance = [
+                        'ticket_id' => $this->cleanValue($values[0]),
+                        'subscription_id' => $this->cleanValue($values[1]),
+                        'customer_id' => $this->cleanValue($values[2]),
+                        'subject_problem' => $this->cleanValue($values[3]),
+                        'customer_report' => $this->cleanValue($values[4]),
+                        'technician_update_desc' => $this->cleanValue($values[5]),
+                        'work_by' => $this->cleanValue($values[6]),
+                        'open_by' => $this->cleanValue($values[7]),
+                        'open_at' => $this->parseNullableDate($values[8]),
+                        'closed_at' => $this->parseNullableDate($values[9]),
+                        'created_by' => $this->cleanValue($values[10]),
+                        'ticket_close_date' => $this->parseNullableDate($values[11]),
+                        'status' => $this->cleanValue($values[12]),
+                        'picture_from_customer' => $this->cleanValue($values[13]),
+                        'picture_from_technician' => $this->cleanValue($values[14]),
+                        'created_at' => $this->parseTimestamp($values[15]),
+                        'updated_at' => $this->parseTimestamp($values[16]),
+                        'handle_by' => $this->cleanValue($values[17]),
+                        'handle_by_team' => $this->cleanValue($values[18]),
+                    ];
+
+                    $maintenances[] = $maintenance;
+                }
+            }
+        }
+    }
+
+    private function importMaintenances(array $maintenancesData, string $progressId): array
+    {
+        $chunks = array_chunk($maintenancesData, self::CHUNK_SIZE);
+        $totalChunks = count($chunks);
+        $imported = 0;
+        $skipped = 0;
+        $skippedRecords = [];
+
+        Log::info('Starting maintenances import', [
+            'total_records' => count($maintenancesData),
+            'chunks' => $totalChunks,
+            'chunk_size' => self::CHUNK_SIZE
+        ]);
+
+        foreach ($chunks as $chunkIndex => $chunk) {
+            try {
+                // Calculate progress for this chunk
+                $chunkProgress = 40 + (($chunkIndex / $totalChunks) * 55); // 40% to 95%
+                $this->updateProgress(
+                    $progressId,
+                    (int)$chunkProgress,
+                    'Importing maintenances chunk ' . ($chunkIndex + 1) . ' of ' . $totalChunks
+                );
+
+                DB::beginTransaction();
+
+                foreach ($chunk as $maintenanceData) {
+                    try {
+                        // Validate maintenance data
+                        if (!$this->validateMaintenanceData($maintenanceData)) {
+                            $skipped++;
+                            $skippedRecords[] = [
+                                'ticket_id' => $maintenanceData['ticket_id'] ?? 'unknown',
+                                'reason' => 'Invalid data structure',
+                                'details' => $this->getMaintenanceValidationErrors($maintenanceData)
+                            ];
+                            continue;
+                        }
+
+                        // Sanitize data
+                        $sanitizedData = $this->sanitizeDataForDatabase($maintenanceData);
+
+                        // Create or update maintenance record
+                        $maintenance = Maintenance::updateOrCreate(
+                            ['ticket_id' => $sanitizedData['ticket_id']],
+                            $sanitizedData
+                        );
+
+                        $imported++;
+
+                        if ($imported % 100 === 0) {
+                            Log::info('Maintenance import progress', [
+                                'imported' => $imported,
+                                'skipped' => $skipped,
+                                'chunk' => $chunkIndex + 1,
+                                'total_chunks' => $totalChunks
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        $skipped++;
+                        $errorMessage = $this->sanitizeErrorMessage($e->getMessage());
+
+                        Log::warning('Failed to import maintenance record', [
+                            'ticket_id' => $maintenanceData['ticket_id'] ?? 'unknown',
+                            'error' => $errorMessage,
+                            'chunk' => $chunkIndex + 1
+                        ]);
+
+                        $skippedRecords[] = [
+                            'ticket_id' => $maintenanceData['ticket_id'] ?? 'unknown',
+                            'reason' => 'Database error',
+                            'details' => $errorMessage
+                        ];
+                    }
+                }
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollback();
+
+                Log::error('Maintenance import chunk failed', [
+                    'chunk' => $chunkIndex + 1,
+                    'error' => $e->getMessage(),
+                    'chunk_size' => count($chunk)
+                ]);
+
+                // Mark all records in this chunk as skipped
+                foreach ($chunk as $maintenanceData) {
+                    $skipped++;
+                    $skippedRecords[] = [
+                        'ticket_id' => $maintenanceData['ticket_id'] ?? 'unknown',
+                        'reason' => 'Chunk transaction failed',
+                        'details' => $this->sanitizeErrorMessage($e->getMessage())
+                    ];
+                }
+            }
+        }
+
+        // Cache skipped records for later retrieval
+        if (!empty($skippedRecords)) {
+            Cache::driver('file')->put("import_skipped_maintenances_{$progressId}", $skippedRecords, 3600);
+        }
+
+        Log::info('Maintenances import completed', [
+            'imported' => $imported,
+            'skipped' => $skipped,
+            'total' => count($maintenancesData)
+        ]);
+
+        return [
+            'imported' => $imported,
+            'skipped' => $skipped,
+            'total' => count($maintenancesData),
+            'skipped_records' => array_slice($skippedRecords, 0, 10), // First 10 for preview
+            'has_more_skipped' => count($skippedRecords) > 10
+        ];
+    }
+
+    private function validateMaintenanceData(array $maintenanceData): bool
+    {
+        return isset($maintenanceData['ticket_id']) &&
+            !empty($maintenanceData['ticket_id']) &&
+            isset($maintenanceData['subject_problem']) &&
+            strtolower(trim($maintenanceData['subject_problem'])) === 'sales';
+    }
+
+    private function getMaintenanceValidationErrors(array $maintenanceData): string
+    {
+        $errors = [];
+
+        if (!isset($maintenanceData['ticket_id']) || empty($maintenanceData['ticket_id'])) {
+            $errors[] = 'Missing ticket_id';
+        }
+
+        if (
+            !isset($maintenanceData['subject_problem']) ||
+            strtolower(trim($maintenanceData['subject_problem'])) !== 'sales'
+        ) {
+            $errors[] = 'subject_problem must be "sales"';
+        }
+
+        return implode(', ', $errors);
     }
 }

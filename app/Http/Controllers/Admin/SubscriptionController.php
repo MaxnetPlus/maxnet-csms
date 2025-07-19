@@ -17,8 +17,7 @@ class SubscriptionController extends Controller
     public function index(Request $request): Response
     {
         $query = Subscription::with([
-            'customer:customer_id,customer_name,customer_email,customer_phone',
-            'activeFollowUps:id,subscription_id,customer_id,priority,status'
+            'customer:customer_id,customer_name,customer_email,customer_phone'
         ])
             ->select([
                 'subscription_id',
@@ -271,8 +270,7 @@ class SubscriptionController extends Controller
     public function tableData(Request $request)
     {
         $query = Subscription::with([
-            'customer:customer_id,customer_name,customer_email,customer_phone',
-            'activeFollowUps:id,subscription_id,customer_id,priority,status'
+            'customer:customer_id,customer_name,customer_email,customer_phone'
         ])
             ->select([
                 'subscription_id',
@@ -360,7 +358,14 @@ class SubscriptionController extends Controller
 
         // Add has_active_follow_ups attribute to each subscription
         $subscriptions->getCollection()->transform(function ($subscription) {
-            $subscription->has_active_follow_ups = $subscription->activeFollowUps->count() > 0;
+            // Get active follow ups for this customer
+            $activeFollowUps = CustomerFollowUp::where('customer_id', $subscription->customer_id)
+                ->whereIn('status', ['pending', 'in_progress'])
+                ->orderBy('priority', 'desc')
+                ->get();
+
+            $subscription->active_follow_ups = $activeFollowUps;
+            $subscription->has_active_follow_ups = $activeFollowUps->isNotEmpty();
             return $subscription;
         });
 
@@ -393,7 +398,6 @@ class SubscriptionController extends Controller
 
         $followUp = CustomerFollowUp::create([
             'customer_id' => $subscription->customer_id,
-            'subscription_id' => $subscription->subscription_id,
             'priority' => $validated['priority'],
             'description' => $validated['description'] ?? null,
             'notes' => $validated['notes'] ?? null,

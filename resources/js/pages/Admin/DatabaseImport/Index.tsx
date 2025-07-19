@@ -17,18 +17,25 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface ImportResult {
     progress_id?: string;
-    customers: {
+    customers?: {
         imported: number;
         skipped: number;
         total: number;
         skipped_records?: SkippedRecord[];
         has_more_skipped?: boolean;
     };
-    subscriptions: {
+    subscriptions?: {
         imported: number;
         skipped: number;
         total: number;
         skipped_records?: SkippedRecord[];
+        has_more_skipped?: boolean;
+    };
+    maintenances?: {
+        imported: number;
+        skipped: number;
+        total: number;
+        skipped_records?: MaintenanceSkippedRecord[];
         has_more_skipped?: boolean;
     };
 }
@@ -37,6 +44,12 @@ interface SkippedRecord {
     subscription_id?: string;
     customer_id: string;
     customer_name?: string;
+    reason: string;
+    details: string;
+}
+
+interface MaintenanceSkippedRecord {
+    ticket_id: string;
     reason: string;
     details: string;
 }
@@ -56,12 +69,14 @@ export default function DatabaseImportIndex() {
     const [error, setError] = useState<string | null>(null);
     const [progressId, setProgressId] = useState<string | null>(null);
     const [detailedLogs, setDetailedLogs] = useState<string[]>([]);
-    const [showSkippedDetails, setShowSkippedDetails] = useState<'customers' | 'subscriptions' | null>(null);
+    const [showSkippedDetails, setShowSkippedDetails] = useState<'customers' | 'subscriptions' | 'maintenances' | null>(null);
     const [loadingSkipped, setLoadingSkipped] = useState(false);
+    const [importType, setImportType] = useState<'customers_subscriptions' | 'maintenances'>('customers_subscriptions');
     const [allSkippedRecords, setAllSkippedRecords] = useState<{
         customers: SkippedRecord[];
         subscriptions: SkippedRecord[];
-    }>({ customers: [], subscriptions: [] });
+        maintenances: MaintenanceSkippedRecord[];
+    }>({ customers: [], subscriptions: [], maintenances: [] });
 
     const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -133,7 +148,7 @@ export default function DatabaseImportIndex() {
     }, []);
 
     const fetchSkippedRecords = useCallback(
-        async (progressId: string, type: 'customers' | 'subscriptions') => {
+        async (progressId: string, type: 'customers' | 'subscriptions' | 'maintenances') => {
             try {
                 setLoadingSkipped(true);
                 const csrfToken = await getCsrfToken();
@@ -351,6 +366,7 @@ export default function DatabaseImportIndex() {
         try {
             const formData = new FormData();
             formData.append('sql_file', file);
+            formData.append('import_type', importType);
 
             const csrfToken = await getCsrfToken();
 
@@ -435,7 +451,7 @@ export default function DatabaseImportIndex() {
         setProgressId(null);
         setDetailedLogs([]);
         setShowSkippedDetails(null);
-        setAllSkippedRecords({ customers: [], subscriptions: [] });
+        setAllSkippedRecords({ customers: [], subscriptions: [], maintenances: [] });
 
         // Clear any running progress interval
         if (progressIntervalRef.current) {
@@ -485,9 +501,43 @@ export default function DatabaseImportIndex() {
                                 <Upload className="h-5 w-5" />
                                 Upload SQL File
                             </CardTitle>
-                            <CardDescription>Select a SQL file containing customers and subscriptions data (max 150MB)</CardDescription>
+                            <CardDescription>
+                                {importType === 'customers_subscriptions'
+                                    ? 'Select a SQL file containing customers and subscriptions data (max 150MB)'
+                                    : 'Select a SQL file containing maintenance tickets with "sales" subject_problem (max 150MB)'}
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="import-type">Import Type</Label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    <label className="flex items-center space-x-2">
+                                        <input
+                                            type="radio"
+                                            name="import-type"
+                                            value="customers_subscriptions"
+                                            checked={importType === 'customers_subscriptions'}
+                                            onChange={(e) => setImportType(e.target.value as 'customers_subscriptions' | 'maintenances')}
+                                            disabled={uploading}
+                                            className="form-radio"
+                                        />
+                                        <span>Customers & Subscriptions</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2">
+                                        <input
+                                            type="radio"
+                                            name="import-type"
+                                            value="maintenances"
+                                            checked={importType === 'maintenances'}
+                                            onChange={(e) => setImportType(e.target.value as 'customers_subscriptions' | 'maintenances')}
+                                            disabled={uploading}
+                                            className="form-radio"
+                                        />
+                                        <span>Maintenance Tickets (Sales Only)</span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="space-y-2">
                                 <Label htmlFor="sql-file">SQL File</Label>
                                 <Input id="sql-file" type="file" accept=".sql" onChange={handleFileSelect} disabled={uploading} />
@@ -527,8 +577,14 @@ export default function DatabaseImportIndex() {
                                         />
                                         <div className="flex justify-between text-xs text-muted-foreground">
                                             <span className={progress >= 10 ? 'text-green-600' : ''}>Parse File</span>
-                                            <span className={progress >= 40 ? 'text-green-600' : ''}>Import Customers</span>
-                                            <span className={progress >= 70 ? 'text-green-600' : ''}>Import Subscriptions</span>
+                                            {importType === 'customers_subscriptions' ? (
+                                                <>
+                                                    <span className={progress >= 40 ? 'text-green-600' : ''}>Import Customers</span>
+                                                    <span className={progress >= 70 ? 'text-green-600' : ''}>Import Subscriptions</span>
+                                                </>
+                                            ) : (
+                                                <span className={progress >= 40 ? 'text-green-600' : ''}>Import Maintenances</span>
+                                            )}
                                             <span className={progress >= 100 ? 'text-green-600' : ''}>Complete</span>
                                         </div>
                                     </div>
@@ -629,72 +685,116 @@ export default function DatabaseImportIndex() {
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <Database className="h-5 w-5 text-blue-600" />
-                                        <h4 className="font-medium">Customers</h4>
-                                    </div>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span>Total records found:</span>
-                                            <span className="font-medium">{result.customers.total}</span>
+                                {/* Show results based on import type */}
+                                {importType === 'customers_subscriptions' && result.customers && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <Database className="h-5 w-5 text-blue-600" />
+                                            <h4 className="font-medium">Customers</h4>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span>Successfully imported:</span>
-                                            <span className="font-medium text-green-600">{result.customers.imported}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Skipped/Failed:</span>
-                                            <span className="font-medium text-yellow-600">{result.customers.skipped}</span>
-                                        </div>
-                                        <div className="mt-2 border-t pt-2">
+                                        <div className="space-y-2 text-sm">
                                             <div className="flex justify-between">
-                                                <span className="font-medium">Success Rate:</span>
-                                                <span className="font-medium text-blue-600">
-                                                    {result.customers.total > 0
-                                                        ? Math.round((result.customers.imported / result.customers.total) * 100)
-                                                        : 0}
-                                                    %
-                                                </span>
+                                                <span>Total records found:</span>
+                                                <span className="font-medium">{result.customers.total}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Successfully imported:</span>
+                                                <span className="font-medium text-green-600">{result.customers.imported}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Skipped/Failed:</span>
+                                                <span className="font-medium text-yellow-600">{result.customers.skipped}</span>
+                                            </div>
+                                            <div className="mt-2 border-t pt-2">
+                                                <div className="flex justify-between">
+                                                    <span className="font-medium">Success Rate:</span>
+                                                    <span className="font-medium text-blue-600">
+                                                        {result.customers.total > 0
+                                                            ? Math.round((result.customers.imported / result.customers.total) * 100)
+                                                            : 0}
+                                                        %
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <FileText className="h-5 w-5 text-purple-600" />
-                                        <h4 className="font-medium">Subscriptions</h4>
-                                    </div>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex justify-between">
-                                            <span>Total records found:</span>
-                                            <span className="font-medium">{result.subscriptions.total}</span>
+                                {importType === 'customers_subscriptions' && result.subscriptions && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <FileText className="h-5 w-5 text-purple-600" />
+                                            <h4 className="font-medium">Subscriptions</h4>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span>Successfully imported:</span>
-                                            <span className="font-medium text-green-600">{result.subscriptions.imported}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Skipped/Failed:</span>
-                                            <span className="font-medium text-yellow-600">{result.subscriptions.skipped}</span>
-                                        </div>
-                                        <div className="mt-2 border-t pt-2">
+                                        <div className="space-y-2 text-sm">
                                             <div className="flex justify-between">
-                                                <span className="font-medium">Success Rate:</span>
-                                                <span className="font-medium text-blue-600">
-                                                    {result.subscriptions.total > 0
-                                                        ? Math.round((result.subscriptions.imported / result.subscriptions.total) * 100)
-                                                        : 0}
-                                                    %
-                                                </span>
+                                                <span>Total records found:</span>
+                                                <span className="font-medium">{result.subscriptions.total}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Successfully imported:</span>
+                                                <span className="font-medium text-green-600">{result.subscriptions.imported}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Skipped/Failed:</span>
+                                                <span className="font-medium text-yellow-600">{result.subscriptions.skipped}</span>
+                                            </div>
+                                            <div className="mt-2 border-t pt-2">
+                                                <div className="flex justify-between">
+                                                    <span className="font-medium">Success Rate:</span>
+                                                    <span className="font-medium text-purple-600">
+                                                        {result.subscriptions.total > 0
+                                                            ? Math.round((result.subscriptions.imported / result.subscriptions.total) * 100)
+                                                            : 0}
+                                                        %
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {importType === 'maintenances' && result.maintenances && (
+                                    <div className="space-y-4 md:col-span-2">
+                                        <div className="flex items-center gap-2">
+                                            <Database className="h-5 w-5 text-orange-600" />
+                                            <h4 className="font-medium">Maintenance Tickets</h4>
+                                        </div>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span>Total records found:</span>
+                                                <span className="font-medium">{result.maintenances.total}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Successfully imported:</span>
+                                                <span className="font-medium text-green-600">{result.maintenances.imported}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span>Skipped/Failed:</span>
+                                                <span className="font-medium text-yellow-600">{result.maintenances.skipped}</span>
+                                            </div>
+                                            <div className="mt-2 border-t pt-2">
+                                                <div className="flex justify-between">
+                                                    <span className="font-medium">Success Rate:</span>
+                                                    <span className="font-medium text-orange-600">
+                                                        {result.maintenances.total > 0
+                                                            ? Math.round((result.maintenances.imported / result.maintenances.total) * 100)
+                                                            : 0}
+                                                        %
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            {(result.customers.skipped > 0 || result.subscriptions.skipped > 0) && (
+                            {/* Skipped records section */}
+                            {((importType === 'customers_subscriptions' &&
+                                result.customers &&
+                                result.subscriptions &&
+                                (result.customers.skipped > 0 || result.subscriptions.skipped > 0)) ||
+                                (importType === 'maintenances' && result.maintenances && result.maintenances.skipped > 0)) && (
                                 <div className="mt-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4">
                                     <div className="flex items-start gap-2">
                                         <AlertTriangle className="mt-0.5 h-5 w-5 text-yellow-600" />
@@ -708,7 +808,7 @@ export default function DatabaseImportIndex() {
                                                 <li>• Duplicate IDs</li>
                                             </ul>
                                             <div className="mt-4 flex gap-2">
-                                                {result.customers.skipped > 0 && (
+                                                {importType === 'customers_subscriptions' && result.customers && result.customers.skipped > 0 && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
@@ -724,20 +824,38 @@ export default function DatabaseImportIndex() {
                                                         View Skipped Customers ({result.customers.skipped})
                                                     </Button>
                                                 )}
-                                                {result.subscriptions.skipped > 0 && (
+                                                {importType === 'customers_subscriptions' &&
+                                                    result.subscriptions &&
+                                                    result.subscriptions.skipped > 0 && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                setShowSkippedDetails('subscriptions');
+                                                                if (progressId && allSkippedRecords.subscriptions.length === 0) {
+                                                                    fetchSkippedRecords(progressId, 'subscriptions');
+                                                                }
+                                                            }}
+                                                            disabled={loadingSkipped}
+                                                            className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
+                                                        >
+                                                            View Skipped Subscriptions ({result.subscriptions.skipped})
+                                                        </Button>
+                                                    )}
+                                                {importType === 'maintenances' && result.maintenances && result.maintenances.skipped > 0 && (
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => {
-                                                            setShowSkippedDetails('subscriptions');
-                                                            if (progressId && allSkippedRecords.subscriptions.length === 0) {
-                                                                fetchSkippedRecords(progressId, 'subscriptions');
+                                                            setShowSkippedDetails('maintenances');
+                                                            if (progressId && allSkippedRecords.maintenances.length === 0) {
+                                                                fetchSkippedRecords(progressId, 'maintenances');
                                                             }
                                                         }}
                                                         disabled={loadingSkipped}
                                                         className="border-yellow-300 text-yellow-800 hover:bg-yellow-100"
                                                     >
-                                                        View Skipped Subscriptions ({result.subscriptions.skipped})
+                                                        View Skipped Maintenances ({result.maintenances.skipped})
                                                     </Button>
                                                 )}
                                             </div>
@@ -767,7 +885,13 @@ export default function DatabaseImportIndex() {
                             <div className="flex items-center justify-between">
                                 <CardTitle className="flex items-center gap-2">
                                     <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                                    Skipped {showSkippedDetails === 'customers' ? 'Customers' : 'Subscriptions'} Details
+                                    Skipped{' '}
+                                    {showSkippedDetails === 'customers'
+                                        ? 'Customers'
+                                        : showSkippedDetails === 'subscriptions'
+                                          ? 'Subscriptions'
+                                          : 'Maintenances'}{' '}
+                                    Details
                                 </CardTitle>
                                 <Button variant="ghost" size="sm" onClick={() => setShowSkippedDetails(null)} className="h-8 w-8 p-0">
                                     <X className="h-4 w-4" />
@@ -793,20 +917,31 @@ export default function DatabaseImportIndex() {
                                                     <div className="mb-2 flex items-start justify-between">
                                                         <div className="font-medium text-red-800">
                                                             {showSkippedDetails === 'customers' ? (
-                                                                <>Customer: {record.customer_name || record.customer_id}</>
+                                                                <>
+                                                                    Customer:{' '}
+                                                                    {(record as SkippedRecord).customer_name || (record as SkippedRecord).customer_id}
+                                                                </>
+                                                            ) : showSkippedDetails === 'subscriptions' ? (
+                                                                <>Subscription: {(record as SkippedRecord).subscription_id}</>
                                                             ) : (
-                                                                <>Subscription: {record.subscription_id}</>
+                                                                <>Maintenance: {(record as MaintenanceSkippedRecord).ticket_id}</>
                                                             )}
                                                         </div>
                                                         <span className="rounded bg-red-100 px-2 py-1 text-xs text-red-700">{record.reason}</span>
                                                     </div>
                                                     <div className="text-sm text-red-700">
-                                                        <div>
-                                                            <strong>Customer ID:</strong> {record.customer_id}
-                                                        </div>
-                                                        {record.subscription_id && (
+                                                        {showSkippedDetails === 'maintenances' ? (
                                                             <div>
-                                                                <strong>Subscription ID:</strong> {record.subscription_id}
+                                                                <strong>Ticket ID:</strong> {(record as MaintenanceSkippedRecord).ticket_id}
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <strong>Customer ID:</strong> {(record as SkippedRecord).customer_id}
+                                                            </div>
+                                                        )}
+                                                        {showSkippedDetails === 'subscriptions' && (record as SkippedRecord).subscription_id && (
+                                                            <div>
+                                                                <strong>Subscription ID:</strong> {(record as SkippedRecord).subscription_id}
                                                             </div>
                                                         )}
                                                         <div>
