@@ -12,7 +12,6 @@ class CustomerFollowUp extends Model
 
     protected $fillable = [
         'customer_id',
-        'subscription_id',
         'priority',
         'status',
         'description',
@@ -43,6 +42,14 @@ class CustomerFollowUp extends Model
     public function subscription(): BelongsTo
     {
         return $this->belongsTo(Subscription::class, 'subscription_id', 'subscription_id');
+    }
+
+    /**
+     * Maintenance terkait follow up (opsional)
+     */
+    public function maintenance(): BelongsTo
+    {
+        return $this->belongsTo(Maintenance::class, 'maintenance_id', 'ticket_id');
     }
 
     /**

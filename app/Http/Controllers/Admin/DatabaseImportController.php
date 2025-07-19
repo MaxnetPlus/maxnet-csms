@@ -30,10 +30,16 @@ class DatabaseImportController extends Controller
         Log::info('Database import upload started', [
             'user_id' => auth()->id(),
             'has_file' => $request->hasFile('sql_file'),
+            'import_type' => $request->input('import_type'),
         ]);
 
         try {
             $request->validate([
+                'import_type' => [
+                    'required',
+                    'string',
+                    'in:customers_subscriptions,maintenances'
+                ],
                 'sql_file' => [
                     'required',
                     'file',
@@ -66,6 +72,8 @@ class DatabaseImportController extends Controller
                     },
                 ],
             ], [
+                'import_type.required' => 'Please select an import type.',
+                'import_type.in' => 'Invalid import type selected.',
                 'sql_file.required' => 'Please select a SQL file to upload.',
                 'sql_file.file' => 'The uploaded file is not valid.',
                 'sql_file.max' => 'The sql file must not be larger than 150MB.',
@@ -81,9 +89,10 @@ class DatabaseImportController extends Controller
         try {
             /** @var UploadedFile $file */
             $file = $request->file('sql_file');
+            $importType = $request->input('import_type');
 
             // Start the import process asynchronously
-            $result = $this->importService->startAsyncImport($file);
+            $result = $this->importService->startAsyncImport($file, $importType);
 
             return response()->json([
                 'success' => true,
@@ -125,7 +134,7 @@ class DatabaseImportController extends Controller
     {
         $request->validate([
             'progress_id' => 'required|string',
-            'type' => 'required|in:customers,subscriptions'
+            'type' => 'required|in:customers,subscriptions,maintenances'
         ]);
 
         $skippedRecords = $this->importService->getSkippedRecords($request->progress_id, $request->type);

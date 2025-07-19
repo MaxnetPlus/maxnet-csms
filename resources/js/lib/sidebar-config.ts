@@ -164,6 +164,7 @@ export const MAIN_NAV_ITEMS: SidebarNavItem[] = [
         icon: List,
         permission: 'view-reports',
     },
+    { title: 'Maintenance', href: '/admin/maintenances', icon: FileText, permission: 'view-reports' },
     {
         title: 'Customer Follow Up',
         href: '/admin/follow-ups',

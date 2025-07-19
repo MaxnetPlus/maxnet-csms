@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\CustomerFollowUpController;
 use App\Http\Controllers\Admin\SalesManagementController;
 use App\Http\Controllers\Admin\ProspectManagementController;
 use App\Http\Controllers\Admin\ProspectCategoryController;
+use App\Http\Controllers\Admin\MaintenanceController;
 use Illuminate\Support\Facades\Route;
 
 // Admin routes with authentication and permission middleware
@@ -91,6 +92,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('/{subscription}', [SubscriptionController::class, 'show'])->name('show');
     });
 
+    // Maintenance Management routes
+    Route::middleware('can:view-reports')->prefix('maintenances')->name('maintenances.')->group(function () {
+        Route::get('/', [MaintenanceController::class, 'index'])->name('index');
+        Route::get('/export', [MaintenanceController::class, 'export'])->name('export');
+        Route::post('/table-data', [MaintenanceController::class, 'tableData'])->name('table-data');
+        Route::get('/{maintenance}', [MaintenanceController::class, 'show'])->name('show');
+    });
+
     // Cancel Subscription routes
     Route::middleware('can:view-reports')->prefix('cancel-subscription')->name('cancel-subscription.')->group(function () {
         Route::get('/', [CancelSubscriptionController::class, 'index'])->name('index');
@@ -138,6 +147,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Subscription follow up routes
     Route::middleware('can:view-reports')->prefix('subscriptions')->name('subscriptions.')->group(function () {
         Route::post('/{subscription}/follow-up', [SubscriptionController::class, 'createFollowUp'])->name('create-follow-up');
+    });
+
+    // Maintenance follow up routes
+    Route::middleware('can:view-reports')->prefix('maintenances')->name('maintenances.')->group(function () {
+        Route::post('/{maintenance}/follow-up', [MaintenanceController::class, 'createFollowUp'])->name('create-follow-up');
     });
 
     // Sales Management routes
