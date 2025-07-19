@@ -1245,7 +1245,7 @@ class DatabaseImportService
             $line = trim($line);
 
             // Check if this is the start of a maintenances INSERT statement
-            if (preg_match('/^INSERT INTO\s+`?maintenances`?\s*\(/i', $line)) {
+            if (preg_match('/^INSERT INTO\s+`?maintenances`?\s*(\(.*\))?\s*VALUES/i', $line)) {
                 $inMaintenanceInsert = true;
                 $currentInsert = $line;
                 continue;
