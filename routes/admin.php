@@ -135,13 +135,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('/search-customers', [CustomerFollowUpController::class, 'searchCustomers'])->name('search-customers');
         Route::get('/create', [CustomerFollowUpController::class, 'create'])->name('create');
         Route::post('/', [CustomerFollowUpController::class, 'store'])->name('store');
+        Route::get('/export', [CustomerFollowUpController::class, 'export'])->name('export');
+        Route::get('/create-from-subscription', [CustomerFollowUpController::class, 'createFromSubscription'])->name('create-from-subscription');
         Route::get('/{followUp}', [CustomerFollowUpController::class, 'show'])->name('show');
         Route::get('/{followUp}/edit', [CustomerFollowUpController::class, 'edit'])->name('edit');
         Route::put('/{followUp}', [CustomerFollowUpController::class, 'update'])->name('update');
         Route::patch('/{followUp}', [CustomerFollowUpController::class, 'update'])->name('patch');
         Route::delete('/{followUp}', [CustomerFollowUpController::class, 'destroy'])->name('destroy');
-        Route::get('/export/excel', [CustomerFollowUpController::class, 'export'])->name('export');
-        Route::get('/create-from-subscription', [CustomerFollowUpController::class, 'createFromSubscription'])->name('create-from-subscription');
     });
 
     // Subscription follow up routes
