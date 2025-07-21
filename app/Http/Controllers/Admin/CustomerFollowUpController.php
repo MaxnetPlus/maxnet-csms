@@ -205,8 +205,8 @@ class CustomerFollowUpController extends Controller
 
         $followUp->update($validated);
 
-        // Check if this is an AJAX request (from our quick assign modal)
-        if ($request->expectsJson() || $request->ajax()) {
+        // Check if this is a true AJAX request (from our quick assign modal)
+        if ($request->ajax() && !$request->wantsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Follow up berhasil diperbarui.',
@@ -214,7 +214,7 @@ class CustomerFollowUpController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.follow-ups.index')
+        return redirect()->route('admin.follow-ups.show', $followUp->id)
             ->with('success', 'Follow up berhasil diperbarui.');
     }
 

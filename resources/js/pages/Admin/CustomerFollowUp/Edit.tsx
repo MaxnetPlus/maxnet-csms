@@ -67,7 +67,13 @@ export default function Edit({ followUp, users }: Props) {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        put(route('admin.follow-ups.update', followUp.id));
+        put(route('admin.follow-ups.update', followUp.id), {
+            preserveScroll: true,
+            headers: {
+                'X-Inertia': 'true',
+                Accept: 'text/html, application/xhtml+xml',
+            },
+        });
     };
 
     const formatDate = (date: string) => {
