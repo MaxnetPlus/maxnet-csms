@@ -11,6 +11,7 @@ class CustomerFollowUp extends Model
     use HasFactory;
 
     protected $fillable = [
+        'subscription_id',
         'customer_id',
         'priority',
         'status',

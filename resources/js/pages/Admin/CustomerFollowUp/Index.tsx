@@ -1,8 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Notification, useNotification } from '@/components/ui/notification';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link, usePage } from '@inertiajs/react';
 import { Download, Plus } from 'lucide-react';
+import { useEffect } from 'react';
 import CustomerFollowUpList from './CustomerFollowUpList';
 
 interface User {
@@ -62,8 +64,16 @@ interface Props {
 }
 
 export default function Index({ followUps, filters, users, stats }: Props) {
-    const { auth } = usePage().props as any;
+    const { auth, flash } = usePage().props as any;
     const userPermissions = auth?.user?.permissions || [];
+    const { notification, showNotification, hideNotification } = useNotification();
+
+    // Check for flash notification when component mounts
+    useEffect(() => {
+        if (flash && flash.notification) {
+            showNotification(flash.notification.type, flash.notification.title, flash.notification.message);
+        }
+    }, [flash]);
 
     const handleExport = (format: string = 'excel') => {
         const params = new URLSearchParams();
@@ -83,6 +93,17 @@ export default function Index({ followUps, filters, users, stats }: Props) {
     return (
         <AppLayout>
             <Head title="Customer Follow Up Management" />
+
+            <Notification
+                show={notification.show}
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                onClose={hideNotification}
+                autoHide={true}
+                duration={5000}
+                position="top-right"
+            />
 
             <div className="mx-auto space-y-6">
                 {/* Header */}

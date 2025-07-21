@@ -237,7 +237,7 @@ export default function SubscriptionList({ initialFilters = {}, groups }: Subscr
         setSubmittingFollowUp(true);
 
         try {
-            const response = await fetch('/admin/follow-ups', {
+            const response = await fetch(route('admin.subscriptions.create-follow-up', selectedSubscription.subscription_id), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

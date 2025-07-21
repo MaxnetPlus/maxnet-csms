@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Notification, useNotification } from '@/components/ui/notification';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
@@ -65,13 +66,17 @@ export default function Edit({ followUp, users }: Props) {
         assigned_to: followUp.assignee?.id?.toString() || 'unassigned',
     });
 
+    // Use the notification hook
+    const { notification, showNotification, hideNotification } = useNotification();
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         put(route('admin.follow-ups.update', followUp.id), {
-            preserveScroll: true,
-            headers: {
-                'X-Inertia': 'true',
-                Accept: 'text/html, application/xhtml+xml',
+            // Let the server handle the redirect
+            preserveState: false,
+            onError: (errors) => {
+                // Show error notification
+                showNotification('error', 'Update Failed', 'An error occurred while updating the follow up. Please check the form and try again.');
             },
         });
     };
@@ -89,6 +94,17 @@ export default function Edit({ followUp, users }: Props) {
     return (
         <AppLayout>
             <Head title={`Edit Follow Up #${followUp.id}`} />
+
+            <Notification
+                show={notification.show}
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                onClose={hideNotification}
+                autoHide={true}
+                duration={5000}
+                position="top-right"
+            />
 
             <div className="container mx-auto space-y-6 p-6">
                 {/* Header */}

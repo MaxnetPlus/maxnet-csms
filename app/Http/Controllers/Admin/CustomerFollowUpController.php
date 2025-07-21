@@ -205,8 +205,8 @@ class CustomerFollowUpController extends Controller
 
         $followUp->update($validated);
 
-        // Check if this is a true AJAX request (from our quick assign modal)
-        if ($request->ajax() && !$request->wantsJson()) {
+        // Special handling for quick assign modal (explicit AJAX request)
+        if ($request->header('X-Requested-With') === 'XMLHttpRequest' && !$request->header('X-Inertia')) {
             return response()->json([
                 'success' => true,
                 'message' => 'Follow up berhasil diperbarui.',
@@ -214,8 +214,14 @@ class CustomerFollowUpController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.follow-ups.show', $followUp->id)
-            ->with('success', 'Follow up berhasil diperbarui.');
+        // For Inertia requests
+        return redirect()->route('admin.follow-ups.index')
+            ->with('success', 'Follow up berhasil diperbarui.')
+            ->with('notification', [
+                'type' => 'success',
+                'title' => 'Follow Up Updated',
+                'message' => "Follow up #{$followUp->getKey()} has been successfully updated."
+            ]);
     }
 
     /**

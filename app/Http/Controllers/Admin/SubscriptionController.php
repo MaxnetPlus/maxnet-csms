@@ -377,6 +377,8 @@ class SubscriptionController extends Controller
      */
     public function createFollowUp(Request $request, Subscription $subscription)
     {
+        // dd($subscription->subscription_id);
+
         $validated = $request->validate([
             'priority' => 'required|in:low,medium,high,urgent',
             'description' => 'nullable|string|max:1000',
@@ -397,6 +399,7 @@ class SubscriptionController extends Controller
         }
 
         $followUp = CustomerFollowUp::create([
+            'subscription_id' => $subscription->subscription_id,
             'customer_id' => $subscription->customer_id,
             'priority' => $validated['priority'],
             'description' => $validated['description'] ?? null,
