@@ -359,6 +359,17 @@ export default function MaintenanceList({ initialFilters = {}, subjectProblems }
                 </div>
             ),
         },
+
+        {
+            header: 'Technician Update',
+            className: 'min-w-[200px]',
+            render: (data: Maintenance) => (
+                <div className="max-w-[200px] truncate" title={data.technician_update_desc}>
+                    {truncateText(data.technician_update_desc, 50)}
+                </div>
+            ),
+        },
+
         {
             header: 'Status',
             className: 'min-w-[100px]',
