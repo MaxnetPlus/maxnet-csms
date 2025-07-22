@@ -341,6 +341,15 @@ export default function MaintenanceList({ initialFilters = {}, subjectProblems }
             ),
         },
         {
+            header: 'Subscription ID',
+            className: 'min-w-[140px]',
+            render: (data: Maintenance) => (
+                <div className="max-w-[140px] truncate" title={data.subscription?.subscription_description || '-'}>
+                    {data.subscription?.subscription_id || '-'}
+                </div>
+            ),
+        },
+        {
             header: 'Subject',
             className: 'min-w-[180px]',
             sortable: true,
@@ -379,11 +388,11 @@ export default function MaintenanceList({ initialFilters = {}, subjectProblems }
                 return <Badge className={config?.className || 'bg-gray-100 text-gray-800'}>{config?.label || data.status}</Badge>;
             },
         },
-        {
-            header: 'Work By',
-            className: 'min-w-[120px]',
-            render: (data: Maintenance) => <span>{data.work_by || '-'}</span>,
-        },
+        // {
+        //     header: 'Work By',
+        //     className: 'min-w-[120px]',
+        //     render: (data: Maintenance) => <span>{data.work_by || '-'}</span>,
+        // },
         {
             header: 'Follow Up',
             className: 'min-w-[120px]',
