@@ -77,6 +77,7 @@ class MaintenanceController extends Controller
         // Validate sort field to prevent SQL injection
         $allowedSortFields = [
             'ticket_id',
+            'subscription_id',
             'subject_problem',
             'status',
             'created_at',
@@ -307,6 +308,7 @@ class MaintenanceController extends Controller
 
         // Validate sort field to prevent SQL injection
         $allowedSortFields = [
+            'subscription_id',
             'ticket_id',
             'subject_problem',
             'status',
