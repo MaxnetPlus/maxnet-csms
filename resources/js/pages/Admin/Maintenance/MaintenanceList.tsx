@@ -342,6 +342,7 @@ export default function MaintenanceList({ initialFilters = {}, subjectProblems }
         },
         {
             header: 'Subscription ID',
+            sortable: true,
             className: 'min-w-[140px]',
             render: (data: Maintenance) => (
                 <div className="max-w-[140px] truncate" title={data.subscription?.subscription_description || '-'}>
@@ -372,6 +373,7 @@ export default function MaintenanceList({ initialFilters = {}, subjectProblems }
         {
             header: 'Technician Update',
             className: 'min-w-[200px]',
+
             render: (data: Maintenance) => (
                 <div className="max-w-[200px] truncate" title={data.technician_update_desc}>
                     {truncateText(data.technician_update_desc, 50)}
