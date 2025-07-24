@@ -26,18 +26,6 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            <style>{`
-                [data-state="collapsed"] .collapsed-user {
-                    display: flex !important;
-                }
-                [data-state="collapsed"] .collapsed-theme {
-                    display: flex !important;
-                }
-                .collapsed-user {
-                    display: none;
-                }
-            `}</style>
-
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
