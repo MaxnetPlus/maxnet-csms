@@ -1,14 +1,24 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarHeader,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar,
+} from '@/components/ui/sidebar';
 import { createSidebarGroups, MAIN_NAV_ITEMS, SIDEBAR_GROUPS } from '@/lib/sidebar-config';
 import { Link, usePage } from '@inertiajs/react';
-import AppLogo from './app-logo';
 
 export function AppSidebar() {
     const { auth } = usePage().props as any;
     const userPermissions = auth?.user?.permissions || [];
+    const { state } = useSidebar();
+    const isCollapsed = state === 'collapsed';
 
     // Helper function to check if user has permission
     const hasPermission = (permission: string) => {
@@ -26,15 +36,39 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible="icon" variant="inset">
-            <SidebarHeader className="border-b">
+            <style>{`
+                [data-state="collapsed"] .collapsed-user {
+                    display: flex !important;
+                }
+                [data-state="collapsed"] .collapsed-theme {
+                    display: flex !important;
+                }
+                .collapsed-user {
+                    display: none;
+                }
+            `}</style>
+
+            <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <Link href="/dashboard" prefetch>
-                                <AppLogo />
-                                <div className="grid flex-1 text-left text-sm leading-tight">
+                                <div className="flex w-full items-center justify-center">
+                                    {!isCollapsed ? (
+                                        /* Logo untuk tampilan expanded */
+                                        <img src="/assets/logo.png" alt="App Logo" className="mx-auto h-8 w-auto flex-shrink-0" />
+                                    ) : (
+                                        /* Logo untuk tampilan collapsed */
+                                        <img
+                                            src="/assets/logo-collapsible.png"
+                                            alt="App Logo Collapsed"
+                                            className="mx-auto h-8 w-8 flex-shrink-0 object-contain"
+                                        />
+                                    )}
+                                </div>
+                                <div className={`grid flex-1 text-left text-sm leading-tight ${isCollapsed ? 'hidden' : 'block'}`}>
                                     <span className="truncate font-semibold">MaxNet CSMS</span>
-                                    <span className="truncate text-xs">Customer Management</span>
+                                    <span className="truncate text-xs opacity-80">Customer Management</span>
                                 </div>
                             </Link>
                         </SidebarMenuButton>
@@ -46,7 +80,7 @@ export function AppSidebar() {
                 <NavMain items={filteredMainNavItems} groups={navGroups} />
             </SidebarContent>
 
-            <SidebarFooter>
+            <SidebarFooter className="space-y-6">
                 <ThemeToggle />
                 <NavUser />
             </SidebarFooter>

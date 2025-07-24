@@ -112,12 +112,12 @@ export function NavMain({ items = [], groups = [] }: { items?: NavItem[]; groups
                     <Collapsible key={group.title} open={isOpen} onOpenChange={() => toggleGroup(group.title)}>
                         <SidebarGroup>
                             <CollapsibleTrigger asChild>
-                                <SidebarGroupLabel className="group/label flex w-full cursor-pointer items-center justify-between text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-                                    <span>{group.title}</span>
-                                    <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/label:rotate-180" />
+                                <SidebarGroupLabel className="group/label relative flex w-full cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-all duration-200 ease-out before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-r before:from-white/5 before:to-transparent before:opacity-0 before:transition-opacity before:duration-200 hover:bg-sidebar-accent/20 hover:text-sidebar-foreground hover:before:opacity-100">
+                                    <span className="font-medium tracking-wide">{group.title}</span>
+                                    <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 ease-out group-data-[state=open]/label:rotate-180" />
                                 </SidebarGroupLabel>
                             </CollapsibleTrigger>
-                            <CollapsibleContent>
+                            <CollapsibleContent className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down transition-all duration-200 ease-out">
                                 <SidebarMenu>
                                     {group.items.map((item) => (
                                         <SidebarMenuItem key={item.title}>

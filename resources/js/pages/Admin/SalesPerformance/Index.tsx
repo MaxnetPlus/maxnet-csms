@@ -258,7 +258,7 @@ export default function Index({ auth, performanceData, stats, salesUsers, filter
                                             className="w-auto pl-9"
                                         />
                                     </div>
-                                    <div className="mt-2 flex gap-2 sm:mt-0">
+                                    <div className="z-100 mt-2 flex gap-2 sm:mt-0">
                                         <Button type="submit" size="sm">
                                             <Search className="mr-2 h-4 w-4" />
                                             Cari
