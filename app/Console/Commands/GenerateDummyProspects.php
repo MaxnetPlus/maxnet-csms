@@ -163,19 +163,29 @@ class GenerateDummyProspects extends Command
                 $convertedAt = now()->subDays(rand(0, 30));
             }
 
-            // Determine creation date
+
+            // Determine creation date with random time
             if ($todayOnly) {
-                $createdAt = now();
+                $randomHour = rand(8, 18);
+                $randomMinute = rand(0, 59);
+                $createdAt = now()->setTime($randomHour, $randomMinute, 0);
             } else if ($yesterdayOnly) {
-                $createdAt = now()->subDay();
+                $randomHour = rand(8, 18);
+                $randomMinute = rand(0, 59);
+                $createdAt = now()->subDay()->setTime($randomHour, $randomMinute, 0);
             } else {
-                $createdAt = now()->subDays(rand(0, $daysBack));
+                $randomDays = rand(0, $daysBack);
+                $randomHour = rand(8, 18);
+                $randomMinute = rand(0, 59);
+                $createdAt = now()->subDays($randomDays)->setTime($randomHour, $randomMinute, 0);
             }
+            $updatedAt = $createdAt;
 
             $salesId = $salesUsers[array_rand($salesUsers)];
             $categoryId = $categories[array_rand($categories)];
 
             // Create the prospect using Eloquent model to trigger model events and relationships
+
             $prospect = Prospect::create([
                 'sales_id' => $salesId,
                 'prospect_category_id' => $categoryId,
@@ -189,7 +199,7 @@ class GenerateDummyProspects extends Command
                 'notes' => 'Prospek dummy yang dibuat untuk testing. Customer ini tertarik dengan layanan kami.',
                 'converted_at' => $convertedAt,
                 'created_at' => $createdAt,
-                'updated_at' => now(),
+                'updated_at' => $updatedAt,
             ]);
 
             // Award points to sales (following the same logic as ProspectController@store)

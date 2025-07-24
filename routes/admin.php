@@ -163,6 +163,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('/{salesManagement}', [SalesManagementController::class, 'destroy'])->name('destroy');
     });
 
+    // Sales Performance Report routes
+    Route::middleware('can:view-reports')->prefix('sales-performance')->name('sales-performance.')->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\SalesPerformanceController::class, 'index'])->name('index');
+        Route::get('/export', [App\Http\Controllers\Admin\SalesPerformanceController::class, 'export'])->name('export');
+    });
+
     // Prospect Management routes  
     Route::middleware('can:manage-sales-targets')->prefix('prospect-management')->name('prospect-management.')->group(function () {
         Route::get('/', [ProspectManagementController::class, 'index'])->name('index');

@@ -1,5 +1,19 @@
 import { NavGroup, NavItem } from '@/types';
-import { BookX, CaptionsOff, Database, FileText, HeadphonesIcon, List, Pickaxe, Shield, Tag, Target, UserCheck, Users } from 'lucide-react';
+import {
+    BookX,
+    CaptionsOff,
+    Database,
+    FileText,
+    HeadphonesIcon,
+    List,
+    Pickaxe,
+    Shield,
+    Tag,
+    Target,
+    TrendingUp,
+    UserCheck,
+    Users,
+} from 'lucide-react';
 
 export interface SidebarNavItem extends NavItem {
     permission?: string;
@@ -84,6 +98,7 @@ export const SIDEBAR_GROUPS: SidebarGroupConfig[] = [
                 icon: UserCheck,
                 permission: 'manage-sales-targets',
             },
+
             {
                 title: 'Prospects',
                 href: '/admin/prospect-management',
@@ -156,6 +171,12 @@ export const MAIN_NAV_ITEMS: SidebarNavItem[] = [
         title: 'Dashboard',
         href: '/dashboard',
         icon: FileText,
+        permission: 'view-reports',
+    },
+    {
+        title: 'Sales Performance Report',
+        href: '/admin/sales-performance',
+        icon: TrendingUp,
         permission: 'view-reports',
     },
     {

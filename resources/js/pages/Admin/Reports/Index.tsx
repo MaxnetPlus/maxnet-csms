@@ -99,8 +99,8 @@ export default function ReportsIndex({ stats, recentImports, subscriptionsByStat
             <div className="space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold">Reports</h1>
-                        <p className="text-muted-foreground">Analytics and insights for your business</p>
+                        <h1 className="text-3xl font-bold">Dashboard</h1>
+                        <p className="text-muted-foreground">Customer and Subscription Analytics</p>
                     </div>
                     {userPermissions.includes('export-data') && (
                         <div className="flex gap-2">
