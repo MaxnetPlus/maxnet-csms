@@ -1,24 +1,14 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { ThemeToggle } from '@/components/theme-toggle';
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    useSidebar,
-} from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { createSidebarGroups, MAIN_NAV_ITEMS, SIDEBAR_GROUPS } from '@/lib/sidebar-config';
 import { Link, usePage } from '@inertiajs/react';
+import AppLogo from './app-logo';
 
 export function AppSidebar() {
     const { auth } = usePage().props as any;
     const userPermissions = auth?.user?.permissions || [];
-    const { state } = useSidebar();
-    const isCollapsed = state === 'collapsed';
 
     // Helper function to check if user has permission
     const hasPermission = (permission: string) => {
@@ -53,20 +43,12 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
                             <Link href="/dashboard" prefetch>
-                                <div className="flex w-full items-center justify-center">
-                                    {!isCollapsed ? (
-                                        /* Logo untuk tampilan expanded */
-                                        <img src="/assets/logo.png" alt="App Logo" className="mx-auto h-8 w-auto flex-shrink-0" />
-                                    ) : (
-                                        /* Logo untuk tampilan collapsed */
-                                        <img
-                                            src="/assets/logo-collapsible.png"
-                                            alt="App Logo Collapsed"
-                                            className="mx-auto h-8 w-8 flex-shrink-0 object-contain"
-                                        />
-                                    )}
-                                </div>
-                                <div className={`grid flex-1 text-left text-sm leading-tight ${isCollapsed ? 'hidden' : 'block'}`}>
+                                <AppLogo
+                                    className="group-data-[collapsible=icon]:px-2"
+                                    normalLogoClassName="transition-all duration-200"
+                                    collapsedLogoClassName="transition-all duration-200"
+                                />
+                                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:sr-only">
                                     <span className="truncate font-semibold">MaxNet CSMS</span>
                                     <span className="truncate text-xs opacity-80">Customer Management</span>
                                 </div>

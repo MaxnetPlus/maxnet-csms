@@ -13,7 +13,7 @@ export default function AppLogo({ className = '', normalLogoClassName = '', coll
                 alt="App Logo"
                 className={`mx-auto h-8 w-auto flex-shrink-0 group-data-[collapsible=icon]:hidden ${normalLogoClassName}`}
             />
-            {/* Logo untuk tampilan collapsed - fallback ke logo.png jika logo-collapsible.png tidak ada */}
+            {/* Logo untuk tampilan collapsed menggunakan logo-collapsible.png */}
             <img
                 src="/assets/logo-collapsible.png"
                 alt="App Logo"
