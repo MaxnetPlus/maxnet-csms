@@ -91,7 +91,12 @@ export default function Index({ followUps, filters, users, stats }: Props) {
     };
 
     return (
-        <AppLayout>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Dashboard', href: '/admin' },
+                { title: 'Customer Follow Up Management', href: '/admin/follow-ups' },
+            ]}
+        >
             <Head title="Customer Follow Up Management" />
 
             <Notification
@@ -107,20 +112,20 @@ export default function Index({ followUps, filters, users, stats }: Props) {
 
             <div className="mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">Customer Follow Up Management</h1>
                         <p className="text-muted-foreground">Manage customer follow ups and track progress</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-2">
                         {userPermissions.includes('export-data') && (
-                            <Button variant="outline" onClick={() => handleExport('excel')} className="flex items-center gap-2">
+                            <Button variant="outline" onClick={() => handleExport('excel')} className="flex w-full items-center gap-2 md:w-auto">
                                 <Download className="h-4 w-4" />
                                 Export Excel
                             </Button>
                         )}
-                        <Link href={route('admin.follow-ups.create')}>
-                            <Button className="flex items-center gap-2">
+                        <Link href={route('admin.follow-ups.create')} className="w-full md:w-auto">
+                            <Button className="flex w-full items-center gap-2 md:w-auto">
                                 <Plus className="h-4 w-4" />
                                 Create Follow Up
                             </Button>

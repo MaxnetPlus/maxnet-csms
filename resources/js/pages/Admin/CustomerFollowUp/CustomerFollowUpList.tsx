@@ -96,9 +96,14 @@ const priorityConfig = {
 } as const;
 
 export default function CustomerFollowUpList({ initialFilters = {}, users }: CustomerFollowUpListProps) {
-    // Get today's date in YYYY-MM-DD format
-    const getTodayDate = () => {
-        return new Date().toISOString().split('T')[0];
+    // Get first and last date of current month in YYYY-MM-DD format
+    const getMonthStartDate = () => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    };
+    const getMonthEndDate = () => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
     };
 
     // Filter to only show sales users
@@ -117,8 +122,8 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
         status: initialFilters.status || 'all',
         priority: initialFilters.priority || 'all',
         assigned_to: initialFilters.assigned_to || 'all',
-        date_from: initialFilters.date_from || getTodayDate(),
-        date_to: initialFilters.date_to || getTodayDate(),
+        date_from: initialFilters.date_from || getMonthStartDate(),
+        date_to: initialFilters.date_to || getMonthEndDate(),
         sort: initialFilters.sort || 'created_at',
         direction: initialFilters.direction || 'desc',
     });
@@ -237,8 +242,8 @@ export default function CustomerFollowUpList({ initialFilters = {}, users }: Cus
             status: 'all',
             priority: 'all',
             assigned_to: 'all',
-            date_from: getTodayDate(),
-            date_to: getTodayDate(),
+            date_from: getMonthStartDate(),
+            date_to: getMonthEndDate(),
             sort: 'created_at',
             direction: 'desc',
         };

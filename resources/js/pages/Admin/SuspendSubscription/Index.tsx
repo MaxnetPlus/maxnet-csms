@@ -468,7 +468,12 @@ export default function SuspendSubscriptionIndex({ customers, mapData, stats, fi
     };
 
     return (
-        <AppLayout>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Dashboard', href: '/admin' },
+                { title: 'Suspend Subscription', href: '/admin/suspend-subscription' },
+            ]}
+        >
             <Head title="Suspend Subscription" />
 
             <div className="space-y-6">

@@ -128,38 +128,68 @@ export default function UsersIndex({ users, invitations, roles, filters }: Props
             <Head title="User Management" />
 
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">User Management</h1>
                         <p className="text-muted-foreground">Manage users and their permissions</p>
                     </div>
                     {userPermissions?.includes('manage-users') && (
-                        <div className="flex gap-2">
-                            <Button asChild variant="outline">
-                                <Link href="/admin/users/invitation-history">
-                                    <History className="mr-2 h-4 w-4" />
-                                    Invitation History
-                                </Link>
-                            </Button>
-                            <Button asChild variant="outline">
-                                <Link href="/admin/users/invite">
-                                    <Mail className="mr-2 h-4 w-4" />
-                                    Invite User
-                                </Link>
-                            </Button>
-                            <Button asChild variant="outline">
-                                <Link href="/admin/users/sso-pending">
-                                    <UserPlus className="mr-2 h-4 w-4" />
-                                    Pending SSO Users
-                                </Link>
-                            </Button>
-                            <Button asChild>
-                                <Link href="/admin/users/create">
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add User
-                                </Link>
-                            </Button>
-                        </div>
+                        <>
+                            {/* Desktop: show buttons on the right */}
+                            <div className="hidden gap-2 md:flex">
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/users/invitation-history">
+                                        <History className="mr-2 h-4 w-4" />
+                                        Invitation History
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/users/invite">
+                                        <Mail className="mr-2 h-4 w-4" />
+                                        Invite User
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/users/sso-pending">
+                                        <UserPlus className="mr-2 h-4 w-4" />
+                                        Pending SSO Users
+                                    </Link>
+                                </Button>
+                                <Button asChild>
+                                    <Link href="/admin/users/create">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add User
+                                    </Link>
+                                </Button>
+                            </div>
+                            {/* Mobile: show buttons below */}
+                            <div className="mt-2 flex flex-col gap-2 md:hidden">
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/users/invitation-history">
+                                        <History className="mr-2 h-4 w-4" />
+                                        Invitation History
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/users/invite">
+                                        <Mail className="mr-2 h-4 w-4" />
+                                        Invite User
+                                    </Link>
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link href="/admin/users/sso-pending">
+                                        <UserPlus className="mr-2 h-4 w-4" />
+                                        Pending SSO Users
+                                    </Link>
+                                </Button>
+                                <Button asChild>
+                                    <Link href="/admin/users/create">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        Add User
+                                    </Link>
+                                </Button>
+                            </div>
+                        </>
                     )}
                 </div>
 

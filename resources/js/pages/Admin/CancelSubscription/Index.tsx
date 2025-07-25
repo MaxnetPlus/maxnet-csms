@@ -468,7 +468,12 @@ export default function CancelSubscriptionIndex({ customers, mapData, stats, fil
     };
 
     return (
-        <AppLayout>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Dashboard', href: '/admin' },
+                { title: 'Cancel Subscription', href: '/admin/cancel-subscription' },
+            ]}
+        >
             <Head title="Cancel Subscription" />
 
             <div className="space-y-6">

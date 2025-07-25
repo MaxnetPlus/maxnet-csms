@@ -100,12 +100,12 @@ export default function ProspectManagementIndex({ prospects, categories, salesUs
 
             <div className="space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">Prospect Management</h1>
                         <p className="text-muted-foreground">Manage and monitor all prospects from sales team</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 md:static md:flex-row md:gap-2">
                         {userPermissions.includes('export-data') && (
                             <Button variant="outline" onClick={() => handleExport('excel')} className="flex items-center gap-2">
                                 <Download className="h-4 w-4" />
@@ -113,7 +113,7 @@ export default function ProspectManagementIndex({ prospects, categories, salesUs
                             </Button>
                         )}
                         <Link href="/sales/prospects/create">
-                            <Button className="flex items-center gap-2">
+                            <Button className="flex w-full items-center gap-2 md:w-auto">
                                 <Plus className="h-4 w-4" />
                                 Create Prospect
                             </Button>

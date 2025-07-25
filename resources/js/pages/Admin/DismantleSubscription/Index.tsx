@@ -468,7 +468,12 @@ export default function DismantleSubscriptionIndex({ customers, mapData, stats, 
     };
 
     return (
-        <AppLayout>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Dashboard', href: '/admin' },
+                { title: 'Dismantle Subscription', href: '/admin/dismantle-subscription' },
+            ]}
+        >
             <Head title="Dismantle Subscription" />
 
             <div className="space-y-6">

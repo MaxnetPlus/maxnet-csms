@@ -135,15 +135,15 @@ export default function RolePermissionsIndex({ roles, permissions }: Props) {
             <Head title="Role & Permission Management" />
 
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">Role & Permission Management</h1>
                         <p className="text-muted-foreground">Manage system roles and permissions</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="mt-4 flex flex-col gap-2 md:mt-0 md:flex-row">
                         <Dialog open={showCreatePermission} onOpenChange={setShowCreatePermission}>
                             <DialogTrigger asChild>
-                                <Button variant="outline">
+                                <Button variant="outline" className="w-full md:w-auto">
                                     <Key className="mr-2 h-4 w-4" />
                                     Add Permission
                                 </Button>
@@ -151,7 +151,7 @@ export default function RolePermissionsIndex({ roles, permissions }: Props) {
                         </Dialog>
                         <Dialog open={showCreateRole} onOpenChange={setShowCreateRole}>
                             <DialogTrigger asChild>
-                                <Button>
+                                <Button className="w-full md:w-auto">
                                     <Shield className="mr-2 h-4 w-4" />
                                     Add Role
                                 </Button>

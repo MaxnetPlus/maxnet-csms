@@ -5,7 +5,22 @@ import { Notification, useNotification } from '@/components/ui/notification';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { Link, router } from '@inertiajs/react';
-import { ArrowLeft, Award, Calendar, CheckCircle, Clock, Edit, MapIcon, MapPin, Phone, StickyNote, User, XCircle } from 'lucide-react';
+import {
+    ArrowLeft,
+    Award,
+    Calendar,
+    CheckCircle,
+    Clock,
+    Edit,
+    MapIcon,
+    MapPin,
+    Phone,
+    PhoneCall,
+    Repeat,
+    StickyNote,
+    User,
+    XCircle,
+} from 'lucide-react';
 import { useState } from 'react';
 
 interface Prospect {
@@ -48,43 +63,33 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
         switch (status) {
             case 'new':
                 return (
-                    <Badge variant="secondary" className="px-4 py-2 text-base font-medium">
-                        <Clock className="mr-2 h-5 w-5" />
+                    <Badge className="bg-purple-100 px-4 py-2 text-base font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300">
                         Baru
                     </Badge>
                 );
             case 'contacted':
                 return (
-                    <Badge variant="outline" className="px-4 py-2 text-base font-medium">
-                        <CheckCircle className="mr-2 h-5 w-5" />
+                    <Badge className="bg-yellow-100 px-4 py-2 text-base font-medium text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
                         Dihubungi
                     </Badge>
                 );
             case 'qualified':
                 return (
-                    <Badge variant="default" className="bg-green-500 px-4 py-2 text-base font-medium hover:bg-green-600">
-                        <CheckCircle className="mr-2 h-5 w-5" />
+                    <Badge className="bg-blue-100 px-4 py-2 text-base font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-300">
                         Terkualifikasi
                     </Badge>
                 );
             case 'converted':
                 return (
-                    <Badge variant="default" className="bg-blue-500 px-4 py-2 text-base font-medium hover:bg-blue-600">
-                        <CheckCircle className="mr-2 h-5 w-5" />
+                    <Badge className="bg-green-100 px-4 py-2 text-base font-medium text-green-800 dark:bg-green-900 dark:text-green-300">
                         Terkonversi
                     </Badge>
                 );
             case 'rejected':
-                return (
-                    <Badge variant="destructive" className="px-4 py-2 text-base font-medium">
-                        <XCircle className="mr-2 h-5 w-5" />
-                        Ditolak
-                    </Badge>
-                );
+                return <Badge className="bg-red-100 px-4 py-2 text-base font-medium text-red-800 dark:bg-red-900 dark:text-red-300">Ditolak</Badge>;
             default:
                 return (
-                    <Badge variant="secondary" className="px-4 py-2 text-base font-medium">
-                        <Clock className="mr-2 h-5 w-5" />
+                    <Badge className="bg-purple-100 px-4 py-2 text-base font-medium text-purple-800 dark:bg-purple-900 dark:text-purple-300">
                         Pending
                     </Badge>
                 );
@@ -97,43 +102,43 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                 return {
                     text: 'Baru',
                     icon: <Clock className="h-5 w-5" />,
-                    color: 'text-gray-600',
-                    bgColor: 'bg-gray-100',
+                    color: 'text-purple-800',
+                    bgColor: 'bg-purple-100',
                 };
             case 'contacted':
                 return {
                     text: 'Dihubungi',
-                    icon: <CheckCircle className="h-5 w-5" />,
-                    color: 'text-blue-600',
-                    bgColor: 'bg-blue-100',
+                    icon: <PhoneCall className="h-5 w-5" />,
+                    color: 'text-yellow-800',
+                    bgColor: 'bg-yellow-100',
                 };
             case 'qualified':
                 return {
                     text: 'Terkualifikasi',
                     icon: <CheckCircle className="h-5 w-5" />,
-                    color: 'text-green-600',
-                    bgColor: 'bg-green-100',
+                    color: 'text-blue-800',
+                    bgColor: 'bg-blue-100',
                 };
             case 'converted':
                 return {
                     text: 'Terkonversi',
-                    icon: <CheckCircle className="h-5 w-5" />,
-                    color: 'text-blue-600',
-                    bgColor: 'bg-blue-100',
+                    icon: <Repeat className="h-5 w-5" />,
+                    color: 'text-green-800',
+                    bgColor: 'bg-green-100',
                 };
             case 'rejected':
                 return {
                     text: 'Ditolak',
                     icon: <XCircle className="h-5 w-5" />,
-                    color: 'text-red-600',
+                    color: 'text-red-800',
                     bgColor: 'bg-red-100',
                 };
             default:
                 return {
                     text: 'Pending',
                     icon: <Clock className="h-5 w-5" />,
-                    color: 'text-gray-600',
-                    bgColor: 'bg-gray-100',
+                    color: 'text-purple-800',
+                    bgColor: 'bg-purple-100',
                 };
         }
     };
@@ -236,7 +241,7 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                     </div>
 
                     {/* Status Actions - Mobile Responsive */}
-                    <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+                    {/* <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
                         {prospect.status === 'new' && (
                             <>
                                 <Button
@@ -265,7 +270,7 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                                 <span>Status dapat diubah di panel samping</span>
                             </div>
                         )}
-                    </div>
+                    </div> */}
                 </div>
 
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -467,25 +472,25 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                                             </SelectItem>
                                             <SelectItem value="contacted">
                                                 <div className="flex items-center gap-2">
-                                                    <CheckCircle className="h-4 w-4" />
+                                                    <PhoneCall className="h-4 w-4" />
                                                     <span>Dihubungi</span>
                                                 </div>
                                             </SelectItem>
                                             <SelectItem value="qualified">
                                                 <div className="flex items-center gap-2">
-                                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                                    <CheckCircle className="h-4 w-4" />
                                                     <span>Terkualifikasi</span>
                                                 </div>
                                             </SelectItem>
                                             <SelectItem value="converted">
                                                 <div className="flex items-center gap-2">
-                                                    <CheckCircle className="h-4 w-4 text-blue-500" />
+                                                    <Repeat className="h-4 w-4" />
                                                     <span>Terkonversi</span>
                                                 </div>
                                             </SelectItem>
                                             <SelectItem value="rejected">
                                                 <div className="flex items-center gap-2">
-                                                    <XCircle className="h-4 w-4 text-red-500" />
+                                                    <XCircle className="h-4 w-4" />
                                                     <span>Ditolak</span>
                                                 </div>
                                             </SelectItem>
@@ -502,10 +507,9 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => handleStatusChange('contacted')}
-                                                disabled={isUpdatingStatus}
-                                                className="text-xs"
+                                                className="bg-yellow-50 text-xs text-yellow-700 hover:bg-yellow-100"
                                             >
-                                                <CheckCircle className="mr-1 h-3 w-3" />
+                                                <PhoneCall className="mr-1 h-3 w-3" />
                                                 Dihubungi
                                             </Button>
                                         )}
@@ -516,7 +520,7 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                                                 variant="outline"
                                                 onClick={() => handleStatusChange('qualified')}
                                                 disabled={isUpdatingStatus}
-                                                className="bg-green-50 text-xs text-green-700 hover:bg-green-100"
+                                                className="bg-blue-50 text-xs text-blue-700 hover:bg-blue-100"
                                             >
                                                 <CheckCircle className="mr-1 h-3 w-3" />
                                                 Setujui
@@ -529,9 +533,9 @@ export default function ShowProspect({ prospect }: ShowProspectProps) {
                                                 variant="outline"
                                                 onClick={() => handleStatusChange('converted')}
                                                 disabled={isUpdatingStatus}
-                                                className="bg-blue-50 text-xs text-blue-700 hover:bg-blue-100"
+                                                className="bg-green-50 text-xs text-green-700 hover:bg-green-100"
                                             >
-                                                <CheckCircle className="mr-1 h-3 w-3" />
+                                                <Repeat className="mr-1 h-3 w-3" />
                                                 Konversi
                                             </Button>
                                         )}

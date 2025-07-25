@@ -9,9 +9,14 @@ export default function AppSidebarLayout({ children, breadcrumbs = [] }: PropsWi
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
+
             <AppContent variant="sidebar" className="overflow-x-hidden">
                 <AppSidebarHeader breadcrumbs={breadcrumbs} />
-                <div className="mx-10">{children}</div>
+                <div className="mx-10 my-10">{children}</div>
+                {/* footer  */}
+                <div className="mt-auto mb-2">
+                    <p className="text-center text-xs text-neutral-500 dark:text-neutral-400">© {new Date().getFullYear()} Made with ❤️</p>
+                </div>
             </AppContent>
         </AppShell>
     );

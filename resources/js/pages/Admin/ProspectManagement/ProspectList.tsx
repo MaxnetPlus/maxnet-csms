@@ -6,7 +6,7 @@ import { Notification, useNotification } from '@/components/ui/notification';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Link, router } from '@inertiajs/react';
-import { CheckCircle, ChevronLeft, ChevronRight, Eye, Filter, Loader2, Search, Trash2, User, X, XCircle } from 'lucide-react';
+import { CheckCircle, ChevronLeft, ChevronRight, Eye, Filter, Loader2, PhoneCall, Repeat, Search, Trash2, User, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 interface User {
@@ -73,17 +73,24 @@ interface ProspectListProps {
 }
 
 const statusConfig = {
-    new: { label: 'New', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+    new: { label: 'New', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' },
     contacted: { label: 'Contacted', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' },
-    qualified: { label: 'Qualified', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
-    converted: { label: 'Converted', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' },
+    qualified: { label: 'Qualified', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
+    converted: { label: 'Converted', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
     rejected: { label: 'Rejected', className: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' },
 } as const;
 
 export default function ProspectList({ initialFilters = {}, categories, salesUsers }: ProspectListProps) {
-    // Get today's date in YYYY-MM-DD format
-    const getTodayDate = () => {
-        return new Date().toISOString().split('T')[0];
+    // Get first and last day of current month in YYYY-MM-DD format
+    const getMonthRange = () => {
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        const toDateString = (date: Date) => date.toISOString().split('T')[0];
+        return {
+            firstDay: toDateString(firstDay),
+            lastDay: toDateString(lastDay),
+        };
     };
 
     console.log('categories', categories);
@@ -91,13 +98,14 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
     const [tableData, setTableData] = useState<PaginationData | null>(null);
     const [loading, setLoading] = useState(false);
     const { notification, showNotification, hideNotification } = useNotification();
+    const monthRange = getMonthRange();
     const [filters, setFilters] = useState({
         search: initialFilters.search || '',
         status: initialFilters.status || 'all',
         category_id: initialFilters.category_id || 'all',
         sales_id: initialFilters.sales_id || 'all',
-        date_from: initialFilters.date_from || getTodayDate(),
-        date_to: initialFilters.date_to || getTodayDate(),
+        date_from: initialFilters.date_from || monthRange.firstDay,
+        date_to: initialFilters.date_to || monthRange.lastDay,
         sort: initialFilters.sort || 'created_at',
         direction: initialFilters.direction || 'desc',
     });
@@ -212,16 +220,15 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
         }));
     };
     const clearFilters = () => {
-        // Get today's date to use as default for date fields
-        const todayDate = getTodayDate();
-
+        // Get first and last day of current month for default date fields
+        const monthRange = getMonthRange();
         const clearedFilters = {
             search: '',
             status: 'all',
             category_id: 'all',
             sales_id: 'all',
-            date_from: todayDate,
-            date_to: todayDate,
+            date_from: monthRange.firstDay,
+            date_to: monthRange.lastDay,
             sort: 'created_at',
             direction: 'desc',
         };
@@ -250,22 +257,36 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
         });
     };
 
-    const handleStatusChange = (prospectId: number, newStatus: 'approved' | 'rejected') => {
-        if (confirm(`Are you sure you want to ${newStatus === 'approved' ? 'approve' : 'reject'} this prospect?`)) {
+    const handleStatusChange = (prospectId: number, newStatus: 'approved' | 'rejected' | 'contacted' | 'converted') => {
+        let confirmMessage = '';
+        let statusValue: 'qualified' | 'rejected' | 'contacted' | 'converted';
+        if (newStatus === 'approved') {
+            confirmMessage = 'Are you sure you want to approve this prospect?';
+            statusValue = 'qualified';
+        } else if (newStatus === 'rejected') {
+            confirmMessage = 'Are you sure you want to reject this prospect?';
+            statusValue = 'rejected';
+        } else if (newStatus === 'contacted') {
+            confirmMessage = 'Are you sure you want to mark this prospect as contacted?';
+            statusValue = 'contacted';
+        } else if (newStatus === 'converted') {
+            confirmMessage = 'Are you sure you want to convert this prospect?';
+            statusValue = 'converted';
+        } else {
+            return;
+        }
+
+        if (confirm(confirmMessage)) {
             router.patch(
                 route('admin.prospect-management.update-status', prospectId),
                 {
-                    status: newStatus === 'approved' ? 'qualified' : 'rejected',
+                    status: statusValue,
                 },
                 {
                     onSuccess: () => {
                         // Refresh the table data
                         fetchTableData(currentPage, filters, true);
-                        showNotification(
-                            'success',
-                            'Status Updated',
-                            `Prospect has been ${newStatus === 'approved' ? 'approved' : 'rejected'} successfully.`,
-                        );
+                        showNotification('success', 'Status Updated', `Prospect has been ${statusValue} successfully.`);
                     },
                     onError: (errors) => {
                         console.error('Error updating status:', errors);
@@ -403,11 +424,21 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                             <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-8 px-2 text-green-600 hover:bg-green-50"
+                                className="h-8 px-2 text-blue-600 hover:bg-green-50"
                                 title="Approve Prospect"
                                 onClick={() => handleStatusChange(data.id, 'approved')}
                             >
                                 <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            {/* dihubungi */}
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-yellow-600 hover:bg-yellow-50"
+                                title="Contact Prospect"
+                                onClick={() => handleStatusChange(data.id, 'contacted')}
+                            >
+                                <PhoneCall className="h-4 w-4" />
                             </Button>
                             <Button
                                 size="sm"
@@ -419,6 +450,40 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                                 <XCircle className="h-4 w-4" />
                             </Button>
                         </>
+                    )}
+                    {data.status === 'contacted' && (
+                        <>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-blue-600 hover:bg-green-50"
+                                title="Approve Prospect"
+                                onClick={() => handleStatusChange(data.id, 'approved')}
+                            >
+                                <CheckCircle className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 text-green-600 hover:bg-green-50"
+                                title="Mark as Converted"
+                                onClick={() => handleStatusChange(data.id, 'converted')}
+                            >
+                                <Repeat className="h-4 w-4" />
+                            </Button>
+                        </>
+                    )}
+                    {data.status === 'qualified' && (
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2 text-green-600 hover:bg-green-50"
+                            title="Mark as Converted"
+                            onClick={() => handleStatusChange(data.id, 'converted')}
+                        >
+                            <Repeat className="h-4 w-4" />
+                        </Button>
                     )}
 
                     <Button
@@ -448,6 +513,111 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
                 duration={5000}
                 position="top-right"
             />
+
+            {/* Status Guide */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-lg font-semibold">Petunjuk Status</CardTitle>
+                    <CardDescription>Panduan status dan aksi yang tersedia untuk setiap prospek</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+                        {/* New Status */}
+                        <div className="flex items-center space-x-2">
+                            <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">New</Badge>
+                            <div className="text-sm">
+                                <div className="font-medium">Baru</div>
+                                <div className="text-xs text-muted-foreground">Prospek baru yang belum ditindaklanjuti</div>
+                            </div>
+                        </div>
+
+                        {/* Contacted Status */}
+                        <div className="flex items-center space-x-2">
+                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">Contacted</Badge>
+                            <div className="text-sm">
+                                <div className="font-medium">Dihubungi</div>
+                                <div className="text-xs text-muted-foreground">Prospek telah dihubungi tim sales</div>
+                            </div>
+                        </div>
+
+                        {/* Qualified Status */}
+                        <div className="flex items-center space-x-2">
+                            <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">Qualified</Badge>
+                            <div className="text-sm">
+                                <div className="font-medium">Terkualifikasi</div>
+                                <div className="text-xs text-muted-foreground">Prospek yang layak untuk dikonversi</div>
+                            </div>
+                        </div>
+
+                        {/* Converted Status */}
+                        <div className="flex items-center space-x-2">
+                            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Converted</Badge>
+                            <div className="text-sm">
+                                <div className="font-medium">Terkonversi</div>
+                                <div className="text-xs text-muted-foreground">Prospek berhasil menjadi customer</div>
+                            </div>
+                        </div>
+
+                        {/* Rejected Status */}
+                        <div className="flex items-center space-x-2">
+                            <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">Rejected</Badge>
+                            <div className="text-sm">
+                                <div className="font-medium">Ditolak</div>
+                                <div className="text-xs text-muted-foreground">Prospek ditolak atau tidak berminat</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Action Icons Guide */}
+                    <div className="mt-6 border-t pt-4">
+                        <h4 className="mb-3 font-medium">Aksi yang Tersedia:</h4>
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+                            <div className="flex items-center space-x-2">
+                                <Button size="sm" variant="outline" className="pointer-events-none h-8 w-8 p-0">
+                                    <Eye className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm">Lihat Detail</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <Button size="sm" variant="outline" className="pointer-events-none h-8 px-2 text-blue-600">
+                                    <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm">Setujui Prospek (New → Qualified)</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <Button size="sm" variant="outline" className="pointer-events-none h-8 px-2 text-yellow-600">
+                                    <PhoneCall className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm">Hubungi Prospek</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <Button size="sm" variant="outline" className="pointer-events-none h-8 px-2 text-green-600">
+                                    <Repeat className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm">Konversi ke Customer</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <Button size="sm" variant="outline" className="pointer-events-none h-8 px-2 text-red-600">
+                                    <XCircle className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm">Tolak Prospek</span>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                                <Button size="sm" variant="outline" className="pointer-events-none h-8 w-8 p-0 text-red-600">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm">Hapus Prospek</span>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Search and Filter Bar */}
             <Card>
                 <CardHeader className="pb-3">

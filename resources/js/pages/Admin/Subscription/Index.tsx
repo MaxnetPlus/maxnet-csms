@@ -58,19 +58,24 @@ export default function Index({ subscriptions, filters, stats, groups }: Props) 
     };
 
     return (
-        <AppLayout>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Dashboard', href: '/admin' },
+                { title: 'Subscriptions', href: '/admin/subscriptions' },
+            ]}
+        >
             <Head title="Subscription Management" />
 
             <div className="mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">Subscription Management</h1>
                         <p className="text-muted-foreground">Manage and view all customer subscriptions</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 md:items-center md:justify-end">
                         {userPermissions.includes('export-data') && (
-                            <Button variant="outline" onClick={() => handleExport('csv')} className="flex items-center gap-2">
+                            <Button variant="outline" onClick={() => handleExport('csv')} className="mt-2 flex items-center gap-2 md:mt-0">
                                 <Download className="h-4 w-4" />
                                 Export CSV
                             </Button>

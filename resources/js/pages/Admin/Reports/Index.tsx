@@ -1,7 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DataTable } from '@/components/ui/data-table';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem, Customer, Subscription } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/react';
@@ -29,7 +28,7 @@ interface Props {
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Dashboard', href: '/dashboard' },
-    { title: 'Reports', href: '/admin/reports' },
+    // { title: 'Reports', href: '/admin/reports' },
 ];
 
 export default function ReportsIndex({ stats, recentImports, subscriptionsByStatus, monthlyGrowth }: Props) {
@@ -97,18 +96,18 @@ export default function ReportsIndex({ stats, recentImports, subscriptionsByStat
             <Head title="Reports" />
 
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">Dashboard</h1>
                         <p className="text-muted-foreground">Customer and Subscription Analytics</p>
                     </div>
                     {userPermissions.includes('export-data') && (
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => handleExport('customers')}>
+                        <div className="mt-4 flex w-full gap-2 md:static md:mt-0 md:w-auto md:flex-row">
+                            <Button variant="outline" onClick={() => handleExport('customers')} className="w-full md:w-auto">
                                 <Download className="mr-2 h-4 w-4" />
                                 Export Customers
                             </Button>
-                            <Button variant="outline" onClick={() => handleExport('subscriptions')}>
+                            <Button variant="outline" onClick={() => handleExport('subscriptions')} className="w-full md:w-auto">
                                 <Download className="mr-2 h-4 w-4" />
                                 Export Subscriptions
                             </Button>
@@ -231,7 +230,7 @@ export default function ReportsIndex({ stats, recentImports, subscriptionsByStat
                 </div>
 
                 {/* Recent Data Tables */}
-                <div className="grid gap-6 md:grid-cols-2">
+                {/* <div className="grid gap-6 md:grid-cols-2">
                     <Card>
                         <CardHeader>
                             <CardTitle>Recent Customers</CardTitle>
@@ -251,7 +250,7 @@ export default function ReportsIndex({ stats, recentImports, subscriptionsByStat
                             <DataTable columns={subscriptionColumns} data={recentImports.recent_subscriptions} />
                         </CardContent>
                     </Card>
-                </div>
+                </div> */}
 
                 {/* Quick Actions */}
                 <Card>

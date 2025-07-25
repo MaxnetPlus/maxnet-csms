@@ -90,24 +90,29 @@ export default function Index({ maintenances, filters, stats, subjectProblems, s
     };
 
     return (
-        <AppLayout>
+        <AppLayout
+            breadcrumbs={[
+                { title: 'Dashboard', href: '/admin' },
+                { title: 'Maintenance Management', href: '/admin/maintenances' },
+            ]}
+        >
             <Head title="Maintenance Management" />
 
             <div className="mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold">Maintenance Management</h1>
                         <p className="text-muted-foreground">Manage and track maintenance tickets</p>
                     </div>
-                    <div className="flex gap-2">
-                        {userPermissions.includes('export-data') && (
-                            <Button variant="outline" onClick={() => handleExport('csv')} className="flex items-center gap-2">
+                    {userPermissions.includes('export-data') && (
+                        <div className="md:flex md:gap-2">
+                            <Button variant="outline" onClick={() => handleExport('csv')} className="mt-2 flex items-center gap-2 md:mt-0">
                                 <Download className="h-4 w-4" />
                                 Export CSV
                             </Button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Statistics Cards */}
