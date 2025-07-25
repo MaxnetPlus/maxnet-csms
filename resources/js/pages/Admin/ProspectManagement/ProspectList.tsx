@@ -392,22 +392,33 @@ export default function ProspectList({ initialFilters = {}, categories, salesUse
             sortable: true,
             render: (data: Prospect) => <div className="text-sm">{formatDate(data.created_at)}</div>,
         },
+        // {
+        //     header: 'Converted',
+        //     className: 'min-w-[140px]',
+        //     render: (data: Prospect) => (
+        //         <div className="text-sm">
+        //             {data.converted_at ? (
+        //                 <div className="flex items-center gap-1 text-green-600">
+        //                     <CheckCircle className="h-3 w-3" />
+        //                     {formatDate(data.converted_at)}
+        //                 </div>
+        //             ) : (
+        //                 <span className="text-muted-foreground">-</span>
+        //             )}
+        //         </div>
+        //     ),
+        // },
+        // notes
         {
-            header: 'Converted',
-            className: 'min-w-[140px]',
+            header: 'Notes',
+            className: 'min-w-[200px]',
             render: (data: Prospect) => (
-                <div className="text-sm">
-                    {data.converted_at ? (
-                        <div className="flex items-center gap-1 text-green-600">
-                            <CheckCircle className="h-3 w-3" />
-                            {formatDate(data.converted_at)}
-                        </div>
-                    ) : (
-                        <span className="text-muted-foreground">-</span>
-                    )}
+                <div className="max-w-[200px] text-sm text-muted-foreground">
+                    {data.notes ? data.notes : <span className="italic">No notes</span>}
                 </div>
             ),
         },
+
         {
             header: 'Actions',
             className: 'min-w-[200px]',

@@ -15,6 +15,8 @@ interface CreateProspectProps {
 }
 
 export default function CreateProspect({ categories }: CreateProspectProps) {
+    // Soft pulse animation (opacity & scale)
+    const softPulseStyle = `@keyframes softPulse { 0% { opacity: 1; transform: scale(1); } 30% { opacity: 0.9; transform: scale(1.02); } 100% { opacity: 1; transform: scale(1); } } .animate-soft-pulse { animation: softPulse 1s infinite; }`;
     const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState<string>('');
     const [loadingLocation, setLoadingLocation] = useState(false);
@@ -273,16 +275,20 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="flex flex-col gap-3 sm:flex-row">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={getCurrentLocation}
-                                    disabled={loadingLocation}
-                                    className="h-11 w-full sm:w-auto md:h-10"
-                                >
-                                    <MapPin className="mr-2 h-4 w-4" />
-                                    {loadingLocation ? 'Mengambil Lokasi...' : 'Ambil Lokasi'}
-                                </Button>
+                                {/* Inject soft pulse animation style */}
+                                {!location && <style>{softPulseStyle}</style>}
+                                <div className="w-full sm:w-auto">
+                                    <Button
+                                        type="button"
+                                        variant="default"
+                                        onClick={getCurrentLocation}
+                                        disabled={loadingLocation}
+                                        className={`h-11 w-full sm:w-auto md:h-10 ${!location ? 'animate-soft-pulse' : ''}`}
+                                    >
+                                        <MapPin className="mr-2 h-4 w-4" />
+                                        {loadingLocation ? 'Mengambil Lokasi...' : 'Ambil Lokasi'}
+                                    </Button>
+                                </div>
 
                                 {location && (
                                     <Button
@@ -317,6 +323,7 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                                         placeholder="Lokasi sales akan terisi otomatis..."
                                         rows={3}
                                         className="resize-none"
+                                        required
                                     />
                                     {errors.sales_location && <p className="text-xs text-destructive">{errors.sales_location}</p>}
                                 </div>
@@ -344,6 +351,7 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                                         onChange={(e) => setData('latitude', e.target.value)}
                                         placeholder="-6.200000"
                                         className="h-11 md:h-10"
+                                        required
                                     />
                                     {errors.latitude && <p className="text-xs text-destructive">{errors.latitude}</p>}
                                 </div>
@@ -360,6 +368,7 @@ export default function CreateProspect({ categories }: CreateProspectProps) {
                                         onChange={(e) => setData('longitude', e.target.value)}
                                         placeholder="106.816666"
                                         className="h-11 md:h-10"
+                                        required
                                     />
                                     {errors.longitude && <p className="text-xs text-destructive">{errors.longitude}</p>}
                                 </div>

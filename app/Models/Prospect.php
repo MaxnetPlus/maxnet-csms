@@ -20,6 +20,7 @@ class Prospect extends Model
         'address',
         'latitude',
         'longitude',
+        'sales_location',
         'status',
         'notes',
         'converted_at',
